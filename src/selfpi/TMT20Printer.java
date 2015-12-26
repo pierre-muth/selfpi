@@ -161,7 +161,7 @@ public class TMT20Printer {
 			sendWithPipe(getByteArray(PRINT_DL));
 //			sendWithPipe(getByteArray(PRINT_FOOT));
 			sendWithPipe(getByteArray(CUT));
-			sendWithPipe(getByteArray(PRINT_HEADER));
+//			sendWithPipe(getByteArray(PRINT_HEADER));
 		}
 		
 		private void sendWithPipe(byte[] data) {

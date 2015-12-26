@@ -48,7 +48,7 @@ public class PiCamera implements Runnable {
 				pixCount++;
 				// a luminance frame arrived
 				if (pixCount == (IMG_WIDTH * IMG_HEIGHT)) {
-					pixList = null;
+//					pixList = null;
 					pixList = pixBuf.clone();
 				}
 			}

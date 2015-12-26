@@ -15,17 +15,19 @@ import javafx.scene.text.TextAlignment;
 
 public class GuiFX extends VBox{
 	public static int COUNT_DOWN = 90;
+	public static String PRESS_BUTTON = "Appuyez sur\nle Bouton";
 	
 	public GuiFX() {
 		setAlignment(Pos.BOTTOM_CENTER);
 		if(Launcher.DEBUG) {
 			getChildren().add(getImageView());
 		} else {
-			getChildren().add(getText());
+			getChildren().add(getTextTop());
 		}
 	}
 	     
 	public void startCounter() {
+		
 		new Thread(new Runnable() {
 			@Override
 			public void run() {
@@ -47,8 +49,8 @@ public class GuiFX extends VBox{
 			@Override
 			public void run() {
 				double d = count/10.0;
-				getText().setFont(new Font(300.0));
-				getText().setText(Double.toString(d));
+				getTextTop().setFont(new Font(280.0));
+				getTextTop().setText(Double.toString(d));
 			}
 		});
 	}
@@ -57,8 +59,8 @@ public class GuiFX extends VBox{
 		Platform.runLater(new Runnable() {
 			@Override
 			public void run() {
-				getText().setFont(new Font(100.0));
-				getText().setText("Press the\nButton");
+				getTextTop().setFont(new Font(75.0));
+				getTextTop().setText(PRESS_BUTTON);
 			}
 		});
 	}
@@ -88,15 +90,15 @@ public class GuiFX extends VBox{
 		return progress;
 	}
 
-	private Text text;
-	private Text getText() {
-		if (text == null) {
-			text = new Text("Press the\nButton");
-			text.setFont(new Font(100.0));
-			text.setVisible(true);
-			text.setTextAlignment(TextAlignment.CENTER);
+	private Text textTop;
+	private Text getTextTop() {
+		if (textTop == null) {
+			textTop = new Text(PRESS_BUTTON);
+			textTop.setFont(new Font(75.0));
+			textTop.setVisible(true);
+			textTop.setTextAlignment(TextAlignment.CENTER);
 		}
-		return text;
+		return textTop;
 	}
 	private ImageView imageView;
 	private ImageView getImageView() {

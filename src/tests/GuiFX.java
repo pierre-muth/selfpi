@@ -1,4 +1,4 @@
-package selfpi;
+package tests;
 
 import javafx.application.Platform;
 import javafx.geometry.Pos;
@@ -12,6 +12,8 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
+import selfpi.PiCamera;
+import selfpi.SelfPi;
 
 public class GuiFX extends VBox{
 	public static int COUNT_DOWN = 90;
@@ -19,7 +21,7 @@ public class GuiFX extends VBox{
 	
 	public GuiFX() {
 		setAlignment(Pos.BOTTOM_CENTER);
-		if(Launcher.DEBUG) {
+		if(SelfPi.DEBUG) {
 			getChildren().add(getImageView());
 		} else {
 			getChildren().add(getTextTop());

@@ -23,6 +23,11 @@ public class Gui extends JPanel {
 		setCount(5);
 	}
 	
+	public void startCounter() {
+		
+	}
+	
+	
 	public void setCount(final int count) {
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override

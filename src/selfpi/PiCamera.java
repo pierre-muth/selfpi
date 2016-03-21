@@ -13,7 +13,7 @@ public class PiCamera implements Runnable {
 	public static final String RASPIVID = 
 			"/opt/vc/bin/raspividyuv"+	//frame rate
 			" -w "+IMG_WIDTH+" -h "+IMG_HEIGHT+			//image dimension
-			" -p 0,0,480,480"+
+			" -p 0,0,1024,1024"+
 			" -ex night -fps 0 -ev +0.1 -co 50 -t 0 -cfx 128:128 -o -";				//no timeout, monochom effect
 
 

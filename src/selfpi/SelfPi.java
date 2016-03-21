@@ -7,10 +7,6 @@ package selfpi;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import javafx.application.Application;
-import javafx.scene.Scene;
-import javafx.stage.Stage;
-
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 import javax.usb.UsbException;
@@ -28,7 +24,7 @@ public class SelfPi {
 	protected enum State {WAIT_SOUVENIR, WAIT_BEER, HISTORIC, PRINTING_TICKET, PRINTING_HISTORIC};
 	protected enum Event {RED_BUTTON, BEER_BUTTON, END_PRINTING, FLUSH_BUTTON};
 
-	public static boolean DEBUG = true; 
+	public static boolean DEBUG = false; 
 	public static State state = State.WAIT_SOUVENIR; 
 
 	private static PiCamera picam;
@@ -55,7 +51,7 @@ public class SelfPi {
 			GpioController gpio;
 			GpioPinDigitalInput printButton;
 			gpio = GpioFactory.getInstance();
-			printButton = gpio.provisionDigitalInputPin(RaspiPin.GPIO_04, PinPullResistance.PULL_DOWN);
+			printButton = gpio.provisionDigitalInputPin(RaspiPin.GPIO_04, PinPullResistance.PULL_UP);
 			printButton.addListener(new ButtonListener());
 
 			GpioPinPwmOutput buttonLedPin = gpio.provisionPwmOutputPin(RaspiPin.GPIO_01);
@@ -146,16 +142,16 @@ public class SelfPi {
 	}
 
 	public static void main(String[] args) {
-		JFrame frame = new JFrame("SelfPi");
+		final JFrame frame = new JFrame("SelfPi");
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		Gui gui = new Gui();
+		final Gui gui = new Gui();
 
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
 				frame.add(gui);
 				frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
-				//				frame.setUndecorated(true);
+				frame.setUndecorated(true);
 				frame.setVisible(true);
 			}
 		});
@@ -181,7 +177,7 @@ public class SelfPi {
 
 		@Override
 		public void handleGpioPinDigitalStateChangeEvent(GpioPinDigitalStateChangeEvent event) {
-			if (event.getState().isLow()) return;
+			if (event.getState().isHigh()) return;
 
 			long currentTime = System.currentTimeMillis();
 			if ( currentTime - lastPrintTime < 500 ) return; // reject if less than 500 ms
@@ -251,11 +247,11 @@ public class SelfPi {
 				public void run() {
 					if (pwmValue<50) pwmValue++;
 					else pwmValue = -50;
-					ledPin.setPwm(Math.abs(pwmValue)*20);
+					ledPin.setPwm( Math.abs(pwmValue)*5 );
 				}
 			};
 			timer = new Timer();
-			timer.schedule(toggler, 1, 20);
+			timer.schedule(toggler, 1, 25);
 		}
 
 		public void startBlinking() {

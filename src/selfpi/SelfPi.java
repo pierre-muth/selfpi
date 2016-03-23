@@ -185,13 +185,37 @@ public class SelfPi {
 
 			if (countAndPrintThread != null && countAndPrintThread.isAlive()) return;
 
-			System.out.println("Button pressed !");
+			System.out.println("Print Button pressed !");
 			
 			stateMachineTransition(Event.RED_BUTTON);
 
 			// and count down
 			countAndPrintThread = new Thread(new RunPrint());
 			countAndPrintThread.start();
+		}
+	} 
+	
+	class BeerButtonListener implements GpioPinListenerDigital {
+		private Thread countAndPrintThread;
+		private long lastPrintTime;
+
+		public BeerButtonListener() {
+			lastPrintTime = System.currentTimeMillis();
+		}
+
+		@Override
+		public void handleGpioPinDigitalStateChangeEvent(GpioPinDigitalStateChangeEvent event) {
+			if (event.getState().isHigh()) return;
+
+			long currentTime = System.currentTimeMillis();
+			if ( currentTime - lastPrintTime < 500 ) return; // reject if less than 500 ms
+			lastPrintTime = currentTime;
+
+			System.out.println("Beer Button pressed !");
+			
+			stateMachineTransition(Event.BEER_BUTTON);
+
+			
 		}
 	} 
 

@@ -17,7 +17,7 @@ public class MonochromImage {
 	public static final float JPEG_QUALITY = 0.97f;	
 	public static final int HEIGHT = PiCamera.IMG_HEIGHT;
 	public static final int WIDTH = PiCamera.IMG_WIDTH;
-	public static final String filePath = "/home/pi/Photos/ticket_";
+	public static final String filePath = "/home/pi/Pictures/ticket_";
 
 	private ImageWriter imageWriter;
 	private int[] pixList;

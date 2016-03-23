@@ -15,51 +15,42 @@ public class Gui extends JPanel {
 		
 		setLayout(new BorderLayout());
 		setBackground(Color.white);
-		
-		add(getWestPanel(), BorderLayout.WEST);
+		add(getNorthDummyPanel(), BorderLayout.NORTH);
+		add(getMainPanel(), BorderLayout.CENTER);
 	}
 	
-	public void reset() {
-		setCount(5);
-	}
-	
-	public void startCounter() {
-		
-	}
-	
-	
-	public void setCount(final int count) {
+	public void setText(final String txt) {
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
-				getCountLabel().setText(Integer.toString(count));
+				getTextLabel().setText(txt);
 			}
 		});
 	}
 	
-	private JPanel westPanel;
-	private JPanel getWestPanel() {
-		if (westPanel == null) {
-			westPanel = new JPanel(new BorderLayout());
-			westPanel.add(getTextLabel(), BorderLayout.NORTH);
-			westPanel.add(getCountLabel(), BorderLayout.CENTER);
+	private JPanel northDummyPanel;
+	private JPanel getNorthDummyPanel() {
+		if (northDummyPanel == null) {
+			northDummyPanel = new JPanel();
+			northDummyPanel.setPreferredSize(new Dimension(1024, 1000));
 		}
-		return westPanel;
+		return northDummyPanel;
 	}
 	
-	private JLabel countLabel;
-	private JLabel getCountLabel() {
-		if(countLabel == null) {
-			countLabel = new JLabel("5");
-			countLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 150));
+	private JPanel mainPanel;
+	private JPanel getMainPanel() {
+		if (mainPanel == null) {
+			mainPanel = new JPanel(new BorderLayout());
+			mainPanel.setPreferredSize(new Dimension(1024, 256));
+			mainPanel.add(getTextLabel(), BorderLayout.CENTER);
 		}
-		return countLabel;
+		return mainPanel;
 	}
 	
 	private JLabel textLabel;
 	private JLabel getTextLabel() {
 		if(textLabel == null) {
-			textLabel = new JLabel("Get ready!");
+			textLabel = new JLabel("<html>Pour un souvenir<br>Appuyez sur le bouton !");
 			textLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 50));
 			textLabel.setPreferredSize(new Dimension(380, 100));
 		}

@@ -52,7 +52,7 @@ public class SelfPi {
 			GpioPinDigitalInput printButton;
 			gpio = GpioFactory.getInstance();
 			printButton = gpio.provisionDigitalInputPin(RaspiPin.GPIO_04, PinPullResistance.PULL_UP);
-			printButton.addListener(new ButtonListener());
+			printButton.addListener(new RedButtonListener());
 
 			GpioPinPwmOutput buttonLedPin = gpio.provisionPwmOutputPin(RaspiPin.GPIO_01);
 			buttonLed = new ButtonLed(buttonLedPin);
@@ -69,7 +69,7 @@ public class SelfPi {
 
 		switch (state) {
 		case WAIT_SOUVENIR:
-			
+
 			switch (event) {
 			case RED_BUTTON:
 				state = State.PRINTING_TICKET;
@@ -167,11 +167,11 @@ public class SelfPi {
 		});
 	}
 
-	class ButtonListener implements GpioPinListenerDigital {
+	class RedButtonListener implements GpioPinListenerDigital {
 		private Thread countAndPrintThread;
 		private long lastPrintTime;
 
-		public ButtonListener() {
+		public RedButtonListener() {
 			lastPrintTime = System.currentTimeMillis();
 		}
 
@@ -186,46 +186,37 @@ public class SelfPi {
 			if (countAndPrintThread != null && countAndPrintThread.isAlive()) return;
 
 			System.out.println("Button pressed !");
+			
 			stateMachineTransition(Event.RED_BUTTON);
 
 			// and count down
-			countAndPrintThread = new Thread(new CountDown());
+			countAndPrintThread = new Thread(new RunPrint());
 			countAndPrintThread.start();
 		}
 	} 
 
-	private class CountDown implements Runnable{
+	private class RunPrint implements Runnable{
 
 		@Override
 		public void run() {
 			// Count Down
-			if (DEBUG) {
-				monoimg.setPixels(picam.getAFrame());
-				try { 
-					Thread.sleep(500);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-				//				Launcher.this.gui.setImage(monoimg.getDitheredMonochrom());
-			} else {
 
-				SelfPi.this.gui.startCounter();
-				SelfPi.buttonLed.startBlinking();
-				try {
-					Thread.sleep(4500);
-				} catch (InterruptedException e) {}
-				monoimg.setPixels(picam.getAFrame());
-				try {
-					Thread.sleep(1000);
-				} catch (InterruptedException e) {}
-				printer.printWithUsb(monoimg);
-				monoimg.writeToFile();
-				try {
-					Thread.sleep(4000);
-				} catch (InterruptedException e) {}
-				SelfPi.buttonLed.startSoftBlink();
-
-			}
+			SelfPi.this.gui.setText("Merci !");
+			SelfPi.buttonLed.startBlinking();
+			
+			try { Thread.sleep(1000); } catch (InterruptedException e) {}
+			
+			monoimg.setPixels(picam.getAFrame());
+			
+			try { Thread.sleep(100); } catch (InterruptedException e) {}
+			
+			printer.printWithUsb(monoimg);
+			monoimg.writeToFile();
+			
+			try { Thread.sleep(4000); } catch (InterruptedException e) {}
+			
+			SelfPi.buttonLed.startSoftBlink();
+			SelfPi.this.gui.setText("Appuyez sur le boutton !");
 
 		}
 

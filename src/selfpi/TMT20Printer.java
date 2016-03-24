@@ -80,7 +80,7 @@ public class TMT20Printer {
 	private UsbEndpoint usbEndpoint;
 	private UsbInterface usbInterface;
 	private Thread usbPrinting;
-
+	
 	public TMT20Printer() throws SecurityException, UsbException {
 		// Search for epson TM-T20
 
@@ -113,7 +113,7 @@ public class TMT20Printer {
 			e.printStackTrace();
 		}
 	}
-
+	
 	private static UsbDevice findUsb(UsbHub hub) {
 		UsbDevice launcher = null;
 

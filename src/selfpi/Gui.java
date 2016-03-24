@@ -1,6 +1,7 @@
 package selfpi;
 
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -10,6 +11,8 @@ import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
 public class Gui extends JPanel {
+	private static final String CARD_TEXT = "text";
+	private static final String CARD_HIST = "hist";
 	
 	public Gui() {
 		
@@ -28,6 +31,27 @@ public class Gui extends JPanel {
 		});
 	}
 	
+	public void setMode(TicketMode mode) {
+		System.out.println("Mode: "+mode);
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				if (mode == TicketMode.HISTORIC)
+					getCardLayout().show(Gui.this.getMainPanel(), CARD_HIST);
+				else
+					getCardLayout().show(Gui.this.getMainPanel(), CARD_TEXT);
+			}
+		});
+	}
+	
+	private CardLayout cardLayout;
+	private CardLayout getCardLayout() {
+		if (cardLayout == null) {
+			cardLayout = new CardLayout();
+		}
+		return cardLayout;
+	}
+	
 	private JPanel northDummyPanel;
 	private JPanel getNorthDummyPanel() {
 		if (northDummyPanel == null) {
@@ -40,9 +64,10 @@ public class Gui extends JPanel {
 	private JPanel mainPanel;
 	private JPanel getMainPanel() {
 		if (mainPanel == null) {
-			mainPanel = new JPanel(new BorderLayout());
+			mainPanel = new JPanel(getCardLayout());
 			mainPanel.setPreferredSize(new Dimension(1024, 256));
-			mainPanel.add(getTextLabel(), BorderLayout.CENTER);
+			mainPanel.add(getTextLabel(), CARD_TEXT);
+			mainPanel.add(getHistoryLabel(), CARD_HIST);
 		}
 		return mainPanel;
 	}
@@ -52,12 +77,18 @@ public class Gui extends JPanel {
 		if(textLabel == null) {
 			textLabel = new JLabel("<html>Pour un souvenir<br>Appuyez sur le bouton !");
 			textLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 50));
-			textLabel.setPreferredSize(new Dimension(380, 100));
 		}
 		return textLabel;
 	}
 	
-	
-	
+	private JLabel historyLabel;
+	private JLabel getHistoryLabel() {
+		if (historyLabel == null) {
+			historyLabel = new JLabel("Historique");
+			historyLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 50));
+		}
+		return historyLabel;
+	}
+
 
 }

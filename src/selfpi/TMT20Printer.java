@@ -14,7 +14,6 @@ import javax.usb.UsbHostManager;
 import javax.usb.UsbHub;
 import javax.usb.UsbInterface;
 import javax.usb.UsbInterfacePolicy;
-import javax.usb.UsbIrp;
 import javax.usb.UsbNotActiveException;
 import javax.usb.UsbNotClaimedException;
 import javax.usb.UsbNotOpenException;
@@ -67,9 +66,14 @@ public class TMT20Printer {
 	};
 	
 	// print NV graphics of key code 32 33
-	private static final int[] PRINT_FOOT = {
+	private static final int[] PRINT_FOOT_SOUVENIR = {
 		0x1D, 0x28, 0x4C, 0x06, 0x00, 0x30, 0x45, 32, 33, 1, 1
 	};
+	
+	// print NV graphics of key code 32 34
+		private static final int[] PRINT_FOOT_BEER = {
+			0x1D, 0x28, 0x4C, 0x06, 0x00, 0x30, 0x45, 32, 34, 1, 1
+		};
 	
 	// paper cut
 	private static final int[] CUT = {
@@ -130,13 +134,37 @@ public class TMT20Printer {
 		return null;
 	}
 	
-	public void printWithUsb(MonochromImage monoimg) {
+	public void printWithUsb(MonochromImage monoimg, TicketMode mode) {
 		if (usbPrinting != null && usbPrinting.isAlive()) {
 			System.out.println("still sending to printer");
 			return;
 		}
-		usbPrinting = new Thread(new PrintWithUsb(monoimg));
+		usbPrinting = new Thread(new PrintWithUsb(monoimg, mode));
 		usbPrinting.start();
+	}
+	
+	public void cut(){
+		if (usbPrinting != null && usbPrinting.isAlive()) {
+			System.out.println("still sending to printer");
+			return;
+		}
+		
+		UsbPipe pipe = usbEndpoint.getUsbPipe();
+		try {
+			pipe.open();
+			int sent = pipe.syncSubmit(getByteArray(CUT));
+			System.out.println(sent + " bytes sent");
+		} catch (UsbNotActiveException | UsbNotClaimedException
+				| UsbDisconnectedException | UsbException e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				pipe.close();
+			} catch (UsbNotActiveException | UsbNotOpenException
+					| UsbDisconnectedException | UsbException e) {
+				e.printStackTrace();
+			}
+		}
 	}
 	  
 	private static byte[] getByteArray(int[] data) {
@@ -149,19 +177,33 @@ public class TMT20Printer {
 
 	private class PrintWithUsb implements Runnable {
 		private MonochromImage monoimg;
+		private TicketMode mode;
 		
-		public PrintWithUsb(MonochromImage monoimg) {
+		public PrintWithUsb(MonochromImage monoimg, TicketMode mode) {
 			this.monoimg = monoimg;
+			this.mode = mode;
 		}
 		
 		@Override
 		public void run() {
+			
 			sendWithPipe(getByteArray(DL_GRAPH));
 			sendWithPipe(monoimg.getDitheredBits());
 			sendWithPipe(getByteArray(PRINT_DL));
-//			sendWithPipe(getByteArray(PRINT_FOOT));
-			sendWithPipe(getByteArray(CUT));
-//			sendWithPipe(getByteArray(PRINT_HEADER));
+			
+			sendWithPipe(monoimg.getSentence());
+			
+			if (mode == TicketMode.BEER) {
+				sendWithPipe(getByteArray(PRINT_FOOT_BEER));
+			} 
+			if (mode == TicketMode.SOUVENIR)  {
+				sendWithPipe(getByteArray(PRINT_FOOT_SOUVENIR));
+			}
+			
+			if (mode != TicketMode.HISTORIC) {
+				sendWithPipe(getByteArray(CUT));
+				sendWithPipe(getByteArray(PRINT_HEADER));
+			}
 		}
 		
 		private void sendWithPipe(byte[] data) {

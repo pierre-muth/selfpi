@@ -1,5 +1,5 @@
 package selfpi;
 
 public enum TicketMode {
-	SOUVENIR, BEER, HISTORIC
+	SOUVENIR, BEER, WINNER, HISTORIC
 }

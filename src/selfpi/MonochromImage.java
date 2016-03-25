@@ -1,10 +1,13 @@
 package selfpi;
 
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferByte;
 import java.awt.image.WritableRaster;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 
 import javax.imageio.IIOImage;
@@ -17,20 +20,81 @@ public class MonochromImage {
 	public static final float JPEG_QUALITY = 0.97f;	
 	public static final int HEIGHT = PiCamera.IMG_HEIGHT;
 	public static final int WIDTH = PiCamera.IMG_WIDTH;
-	public static final String filePath = "/home/pi/Pictures/ticket_";
+
 
 	private ImageWriter imageWriter;
 	private int[] pixList;
 	private Thread fileWriterThread;
+	private String numberFileName = "0001";
+	private ArrayList<String> sentences;
 
 	public MonochromImage() {
 		imageWriter = ImageIO.getImageWritersByFormatName("jpg").next();
+		sentences = new ArrayList<>();
+		
+		String line;
+		
+		try (BufferedReader br = new BufferedReader( new FileReader(SelfPi.SENTENCESPATH) )){
+			do {
+				
+				line = br.readLine();
+				if (line != null)
+					sentences.add(line);
+				
+			} while (line != null);
+
+		} catch (IOException e) {
+			System.out.println("Error in config.txt");
+		};
+
 	}
 
 	public void setPixels(int[] pixList) {
 		this.pixList = pixList;
+		// filename with second number.
+		numberFileName= Integer.toString( (int) (new Date().getTime() /1000) );
 	}
-	
+
+	public void chooseRandomImage(){
+		File folder = new File(SelfPi.beerFilefolder);
+		File[] listOfFiles = folder.listFiles();
+
+		int random = (int) (Math.random()*listOfFiles.length);
+
+		try {
+			BufferedImage randomImage = ImageIO.read(listOfFiles[random]);
+			byte[] bytelist = ((DataBufferByte) randomImage.getRaster().getDataBuffer()).getData();
+			pixList = new int[randomImage.getWidth()*randomImage.getWidth()];
+			for (int i = 0; i < bytelist.length/3; i++) {
+				pixList[i] = Byte.toUnsignedInt( bytelist[i*3] );
+			}
+
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+	}
+
+	public byte[] getSentence(){
+		int rand = (int) (Math.random()*sentences.size());
+		
+		return sentences.get(rand).concat("\n").getBytes();
+	}
+
+	public void setFile(File file){
+		try {
+			BufferedImage bufImage = ImageIO.read(file);
+			byte[] bytelist = ((DataBufferByte) bufImage.getRaster().getDataBuffer()).getData();
+			pixList = new int[bufImage.getWidth()*bufImage.getWidth()];
+			for (int i = 0; i < bytelist.length/3; i++) {
+				pixList[i] = Byte.toUnsignedInt( bytelist[i*3] );
+			}
+
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
 	public int[] getDitheredMonochrom() {
 		int pixelWithError, pixelDithered, error;
 		boolean notLeft, notRight, notBottom;
@@ -47,19 +111,19 @@ public class MonochromImage {
 		//limiting
 		max = max<32 ? 32 : max;
 		min = min>224 ? 224 : min;
-		
+
 		// calculate gain
 		gain = 255.0/(max-min);		
-		
+
 		System.out.println("Gain: "+gain+", offset: "+min);
-		
+
 		// normalise min-max to 0 - 255
 		for (int i = 0; i < pixList.length; i++) {
 			pixList[i] = (int) ( (pixList[i] - min)*gain) ;
 			if(pixList[i]>255) pixList[i] = 255;
 			if(pixList[i]<0) pixList[i] = 0;
 		}
-		
+
 		//dithering
 		for (int pixCount = 0; pixCount < pixList.length; pixCount++) {
 
@@ -80,21 +144,21 @@ public class MonochromImage {
 
 			// get the error of the aproximation
 			error = pixelWithError - pixelDithered;
-			
+
 			// propagate error
 			if (notRight) pixDithered[pixCount+1] += 7*error/16;
 			if (notLeft && notBottom) pixDithered[pixCount+(WIDTH-1)] += 3*error/16;
 			if (notBottom) pixDithered[pixCount+(WIDTH)] += 5*error/16;
 			if (notRight && notBottom) pixDithered[pixCount+(WIDTH+1)] += 1*error/16;
 		}
-		
+
 		return pixDithered;
 	}
-	
+
 	public byte[] getDitheredBits() {
-		
+
 		int[] pixDithered = getDitheredMonochrom();
-		
+
 		//generate image with pixel bit in bytes
 		byte[] pixBytes = new byte[(HEIGHT/8) * WIDTH ];
 
@@ -103,21 +167,22 @@ public class MonochromImage {
 		for (int i = 0; i < pixBytes.length; i++) {
 			for (int j = 0; j < 8; j++) {
 				mask = 0b10000000 >>> j;
-				x = ((i%(HEIGHT/8)*8 ) +j)  ;
-				y = i / (HEIGHT/8);
-				if ( pixDithered[x+(y*WIDTH)] == 0 ) {
-					pixBytes[i] = (byte) (pixBytes[i] | mask);
-				}
+		x = ((i%(HEIGHT/8)*8 ) +j)  ;
+		y = i / (HEIGHT/8);
+		if ( pixDithered[x+(y*WIDTH)] == 0 ) {
+			pixBytes[i] = (byte) (pixBytes[i] | mask);
+		}
 			}
 		}
 
 		return pixBytes;
 	}
 
-	public void writeToFile() {
+	public void writeToFile(TicketMode mode) {
+		if (mode == TicketMode.WINNER) return;
 		if (fileWriterThread == null || !fileWriterThread.isAlive()) {
 			fileWriterThread = null;
-			fileWriterThread = new Thread(new ImageFileWriter());
+			fileWriterThread = new Thread(new ImageFileWriter(mode));
 			fileWriterThread.start();
 		} else {
 			System.out.println("File capture thread did not finished.");
@@ -130,9 +195,11 @@ public class MonochromImage {
 		private WritableRaster wr;
 		private ImageWriteParam imageWriteParam;
 		private IIOImage outputImage;
-		
+		private TicketMode mode;
 
-		public ImageFileWriter() {
+
+		public ImageFileWriter(TicketMode mode) {
+			this.mode = mode;
 			bufImage = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_BYTE_GRAY);
 			wr = bufImage.getData().createCompatibleWritableRaster();
 			imageWriteParam = imageWriter.getDefaultWriteParam();
@@ -144,23 +211,31 @@ public class MonochromImage {
 		@Override
 		public void run() {
 			// make image
-//			wr.setPixels(0, 0, WIDTH, HEIGHT, getDitheredMonochrom());   //dithered image
+			//			wr.setPixels(0, 0, WIDTH, HEIGHT, getDitheredMonochrom());   //dithered image
 			wr.setPixels(0, 0, WIDTH, HEIGHT, pixList);	 // grayscale image		
 			bufImage.setData(wr);
 			outputImage = new IIOImage(bufImage, null, null);
 
 			// make filename with date
-			SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH.mm.ss");
-			String dateString = sdf.format(new Date());
+			//			SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH.mm.ss");
+			//			String dateString = sdf.format(new Date());
+
+			// use filename with second number.
+			String numberString = MonochromImage.this.numberFileName;
+			String path;
+			if (mode == TicketMode.BEER)
+				path = SelfPi.beerFilePath;
+			else 
+				path = SelfPi.souvenirFilePath;
 
 			// file to write
-			File imageFile = new File(filePath+dateString+".jpg");
+			File imageFile = new File(path+numberString+".jpg");
 
 			//write jpeg image file
 			try {
 				imageWriter.setOutput(new FileImageOutputStream( imageFile ));
 				imageWriter.write(null, outputImage, imageWriteParam);
-				
+
 			} catch (IOException e) {
 				e.printStackTrace();
 			} 

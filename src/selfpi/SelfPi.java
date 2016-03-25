@@ -2,6 +2,16 @@ package selfpi;
 
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * to launch: sudo java -cp ".:/home/pi/selfpi/lib/*" selfpi.Launcher 
@@ -23,7 +33,11 @@ import com.pi4j.io.gpio.RaspiPin;
 import com.pi4j.io.gpio.event.GpioPinDigitalStateChangeEvent;
 import com.pi4j.io.gpio.event.GpioPinListenerDigital;
 
-public class SelfPi implements KeyListener{
+public class SelfPi implements KeyListener {
+	public static final String souvenirFilePath = "/home/pi/Pictures/souvenir/ticket_";
+	public static final String beerFilePath = "/home/pi/Pictures/beer/ticket_";
+	public static final String beerFilefolder = "/home/pi/Pictures/beer/";
+//	public static final String beerFilefolder = "c:/temporary/beer/";
 
 	public static boolean DEBUG = true; 
 	public static PrinterState printerState = PrinterState.IDLE;
@@ -33,13 +47,45 @@ public class SelfPi implements KeyListener{
 	private static MonochromImage monoimg = new MonochromImage();
 	private static TMT20Printer printer;
 	private static ButtonLed buttonLed;
-
+	
+	public static final String FILECONFPATH = "config.txt";
+	public static final String COUNTERPATH = "counter.txt";
+	public static final String SENTENCESPATH = "phrase.txt";
+	
+	private static final String GAGNANTKEY = "GAGNANT:";
+	
+	private static int beerTicketCounter = 0;
+	private static int beerTicketWin = 100;
+	
 	private Gui gui;
-
+	
+	private Thread printHistoryThread;
+	
 	public SelfPi(Gui gui) {
 		this.gui = gui;
 
 		if (!DEBUG) {
+			
+			//read config
+			String line;
+			try (BufferedReader br = new BufferedReader( new FileReader(FILECONFPATH) )){
+				
+				line = br.readLine();
+				if (line != null && line.contains(GAGNANTKEY)) {
+					beerTicketWin = Integer.parseInt( br.readLine() );
+				}
+				
+				
+			} catch (IOException e) {
+				System.out.println("Error in config.txt");
+			};
+			
+			//read global counter
+			try (BufferedReader br = new BufferedReader( new FileReader(COUNTERPATH))){
+				beerTicketCounter = Integer.parseInt( br.readLine() );
+			} catch (IOException e) {
+				System.out.println("Error in config.txt");
+			};
 
 			// start Pinter
 			try {
@@ -73,7 +119,15 @@ public class SelfPi implements KeyListener{
 	@Override
 	public void keyPressed(KeyEvent e) {
 		if (e.getKeyCode() == KeyEvent.VK_ENTER){
-			ticketStateMachineTransition(SelfPiEvent.FLUSH_BUTTON);
+			ticketStateMachineTransition(SelfPiEvent.HISTORY_BUTTON);
+		}
+		if (e.getKeyCode() == KeyEvent.VK_P){
+			int fileIndex = gui.getHistoryFileIndex();
+			
+			if (printHistoryThread != null && printHistoryThread.isAlive()) return;
+				
+			printHistoryThread = new Thread(new RunPrintHistory(fileIndex));
+			printHistoryThread.start();
 		}
 	}
 
@@ -130,7 +184,7 @@ public class SelfPi implements KeyListener{
 			case BEER_BUTTON:
 				ticketMode = TicketMode.BEER;
 				break;
-			case FLUSH_BUTTON:
+			case HISTORY_BUTTON:
 				ticketMode = TicketMode.HISTORIC;
 				break;
 
@@ -147,7 +201,7 @@ public class SelfPi implements KeyListener{
 			case BEER_BUTTON:
 				ticketMode = TicketMode.SOUVENIR;
 				break;
-			case FLUSH_BUTTON:
+			case HISTORY_BUTTON:
 				ticketMode = TicketMode.HISTORIC;
 				break;
 
@@ -158,7 +212,7 @@ public class SelfPi implements KeyListener{
 			
 		case HISTORIC:
 			switch (event) {
-			case FLUSH_BUTTON:
+			case HISTORY_BUTTON:
 				ticketMode = TicketMode.SOUVENIR;
 				break;
 			default:
@@ -192,6 +246,7 @@ public class SelfPi implements KeyListener{
 
 		SelfPi selfpi = new SelfPi(gui);
 		frame.addKeyListener(selfpi);
+		frame.addKeyListener(gui);
 
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 			public void run() {
@@ -203,7 +258,7 @@ public class SelfPi implements KeyListener{
 	}
 
 	class RedButtonListener implements GpioPinListenerDigital {
-		private Thread printThread;
+		private Thread printTicketThread;
 		private long lastPrintTime;
 
 		public RedButtonListener() {
@@ -219,16 +274,16 @@ public class SelfPi implements KeyListener{
 			
 			lastPrintTime = currentTime;
 
-			if (printThread != null && printThread.isAlive()) return;
+			if (printTicketThread != null && printTicketThread.isAlive()) return;
 			if (SelfPi.printerState == PrinterState.PRINTING) return;
 
-			System.out.println("Print Button pressed !");
+			System.out.println("Red Button pressed !");
 			
 			printerStateMachineTransition(SelfPiEvent.RED_BUTTON);
 
-			// and count down
-			printThread = new Thread(new RunPrint(SelfPi.ticketMode));
-			printThread.start();
+			// launch printing
+			printTicketThread = new Thread(new RunPrintTicket(SelfPi.ticketMode));
+			printTicketThread.start(); 
 			
 			ticketStateMachineTransition(SelfPiEvent.RED_BUTTON);
 		}
@@ -255,39 +310,90 @@ public class SelfPi implements KeyListener{
 
 			
 		}
-	} 
+	}
+	
+	private class RunPrintHistory implements Runnable{
+		private int historyFileIndex;
+		public RunPrintHistory(int fileIndex) {
+			this.historyFileIndex = fileIndex;
+		}
 
-	private class RunPrint implements Runnable{
+		@Override
+		public void run() {
+
+			SelfPi.buttonLed.startBlinking();
+			
+			File folder = new File(SelfPi.beerFilefolder);
+			File[] listOfFiles = folder.listFiles();
+			
+			for (int i = historyFileIndex; i < listOfFiles.length && i < historyFileIndex+6; i++) {
+				monoimg.setFile(listOfFiles[i]);
+				try { Thread.sleep(500); } catch (InterruptedException e) {}
+				printer.printWithUsb(monoimg, TicketMode.HISTORIC);
+				// printing
+				try { Thread.sleep(4000); } catch (InterruptedException e) {}
+			}
+			
+			printer.cut();
+			SelfPi.buttonLed.startSoftBlink();
+		}
+		
+	}
+
+	private class RunPrintTicket implements Runnable{
 		private TicketMode mode;
-		public RunPrint(TicketMode mode) {
+		public RunPrintTicket(TicketMode mode) {
 			this.mode = mode;
 		}
 
 		@Override
 		public void run() {
 
-			SelfPi.this.gui.setText("Merci !");
 			SelfPi.buttonLed.startBlinking();
+			SelfPi.this.gui.setPrinting();
+			
+			if (mode == TicketMode.BEER){
+				if (beerTicketCounter%beerTicketWin == 0){
+					mode = TicketMode.WINNER;
+				}
+			}
 			
 			try { Thread.sleep(1000); } catch (InterruptedException e) {}
 			
-			monoimg.setPixels(picam.getAFrame());
+			if (mode == TicketMode.WINNER){
+				monoimg.chooseRandomImage();
+			} else {
+				monoimg.setPixels(picam.getAFrame());
+			}
 			
-			try { Thread.sleep(100); } catch (InterruptedException e) {}
+			try { Thread.sleep(500); } catch (InterruptedException e) {}
 			
-			printer.printWithUsb(monoimg);
-			monoimg.writeToFile();
+			printer.printWithUsb(monoimg, mode);
+			monoimg.writeToFile(mode);
 			
 			// printing
 			try { Thread.sleep(4000); } catch (InterruptedException e) {}
 			
+			if (mode == TicketMode.BEER || mode == TicketMode.WINNER){
+				// inc print counter
+				beerTicketCounter++;
+				Path file = Paths.get(COUNTERPATH);
+				String line = Integer.toString(beerTicketCounter);
+				List<String> lines = Arrays.asList(line);
+				try {
+					Files.write(file, lines, Charset.forName("UTF-8"));
+				} catch (IOException e) {
+					e.printStackTrace();
+				}				
+			}
+			
 			SelfPi.buttonLed.startSoftBlink();
-			SelfPi.this.gui.setText("Appuyez sur le boutton !");
+			SelfPi.this.gui.setMode(SelfPi.ticketMode);
 			
 			SelfPi.this.printerStateMachineTransition(SelfPiEvent.END_PRINTING);
 
 		}
-
+		
 	}
 
 	private class ButtonLed {

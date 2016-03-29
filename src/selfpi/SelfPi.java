@@ -6,17 +6,14 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
-
 /**
  * to launch: sudo java -cp ".:/home/pi/selfpi/lib/*" selfpi.Launcher 
  */
-
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -27,6 +24,7 @@ import javax.usb.UsbException;
 import com.pi4j.io.gpio.GpioController;
 import com.pi4j.io.gpio.GpioFactory;
 import com.pi4j.io.gpio.GpioPinDigitalInput;
+import com.pi4j.io.gpio.GpioPinDigitalOutput;
 import com.pi4j.io.gpio.GpioPinPwmOutput;
 import com.pi4j.io.gpio.PinPullResistance;
 import com.pi4j.io.gpio.RaspiPin;
@@ -34,23 +32,24 @@ import com.pi4j.io.gpio.event.GpioPinDigitalStateChangeEvent;
 import com.pi4j.io.gpio.event.GpioPinListenerDigital;
 
 public class SelfPi implements KeyListener {
-	public static final String souvenirFilePath = "/home/pi/Pictures/souvenir/ticket_";
-	public static final String beerFilePath = "/home/pi/Pictures/beer/ticket_";
-	public static final String beerFilefolder = "/home/pi/Pictures/beer/";
+	public static final String souvenirFilePath = "/home/pi/selfpi/souvenir/";
+	public static final String beerFilePath = "/home/pi/selfpi/beer/";
+	public static final String beerFilefolder = "/home/pi/selfpi/beer/";
 //	public static final String beerFilefolder = "c:/temporary/beer/";
 
-	public static boolean DEBUG = true; 
+	public static boolean DEBUG = false; 
 	public static PrinterState printerState = PrinterState.IDLE;
 	public static TicketMode ticketMode = TicketMode.SOUVENIR; 
 
 	private static PiCamera picam;
 	private static MonochromImage monoimg = new MonochromImage();
 	private static TMT20Printer printer;
-	private static ButtonLed buttonLed;
+	private static ButtonLed printButtonLed;
+	private static GpioPinDigitalOutput beerButtonLed;
 	
-	public static final String FILECONFPATH = "config.txt";
-	public static final String COUNTERPATH = "counter.txt";
-	public static final String SENTENCESPATH = "phrase.txt";
+	public static final String FILECONFPATH = "/home/pi/selfpi/setup/config.txt";
+	public static final String COUNTERPATH = "/home/pi/selfpi/setup/counter.txt";
+	public static final String SENTENCESPATH = "/home/pi/selfpi/setup/phrase.txt";
 	
 	private static final String GAGNANTKEY = "GAGNANT:";
 	
@@ -105,9 +104,11 @@ public class SelfPi implements KeyListener {
 			beerButton = gpio.provisionDigitalInputPin(RaspiPin.GPIO_05, PinPullResistance.PULL_UP);
 			beerButton.addListener(new BeerButtonListener());
 			
+			beerButtonLed = gpio.provisionDigitalOutputPin(RaspiPin.GPIO_06);
+			
 			GpioPinPwmOutput buttonLedPin = gpio.provisionPwmOutputPin(RaspiPin.GPIO_01);
-			buttonLed = new ButtonLed(buttonLedPin);
-			buttonLed.startSoftBlink();
+			printButtonLed = new ButtonLed(buttonLedPin);
+			printButtonLed.startSoftBlink();
 
 			// Start Pi camera
 			picam = new PiCamera();
@@ -123,10 +124,11 @@ public class SelfPi implements KeyListener {
 		}
 		if (e.getKeyCode() == KeyEvent.VK_P){
 			int fileIndex = gui.getHistoryFileIndex();
+			File historyDirectory = gui.getHistoryDirectory();
 			
 			if (printHistoryThread != null && printHistoryThread.isAlive()) return;
 				
-			printHistoryThread = new Thread(new RunPrintHistory(fileIndex));
+			printHistoryThread = new Thread(new RunPrintHistory(historyDirectory, fileIndex));
 			printHistoryThread.start();
 		}
 	}
@@ -226,6 +228,11 @@ public class SelfPi implements KeyListener {
 		
 		// actualize gui
 		gui.setMode(ticketMode);
+		if (ticketMode == TicketMode.BEER) {
+			beerButtonLed.low();
+		} else {
+			beerButtonLed.high();
+		}
 		
 	}
 	
@@ -314,28 +321,34 @@ public class SelfPi implements KeyListener {
 	
 	private class RunPrintHistory implements Runnable{
 		private int historyFileIndex;
-		public RunPrintHistory(int fileIndex) {
+		private File directory;
+		public RunPrintHistory(File directory, int fileIndex) {
 			this.historyFileIndex = fileIndex;
+			this.directory = directory;
 		}
 
 		@Override
 		public void run() {
 
-			SelfPi.buttonLed.startBlinking();
+			SelfPi.printButtonLed.startBlinking();
 			
-			File folder = new File(SelfPi.beerFilefolder);
+			File folder = directory;
 			File[] listOfFiles = folder.listFiles();
+			Arrays.sort(listOfFiles);
 			
 			for (int i = historyFileIndex; i < listOfFiles.length && i < historyFileIndex+6; i++) {
 				monoimg.setFile(listOfFiles[i]);
+				System.out.println("print: "+listOfFiles[i].getName());
 				try { Thread.sleep(500); } catch (InterruptedException e) {}
 				printer.printWithUsb(monoimg, TicketMode.HISTORIC);
 				// printing
 				try { Thread.sleep(4000); } catch (InterruptedException e) {}
+				System.out.println("printed.");
 			}
 			
 			printer.cut();
-			SelfPi.buttonLed.startSoftBlink();
+			printer.printHeader();
+			SelfPi.printButtonLed.startSoftBlink();
 		}
 		
 	}
@@ -349,7 +362,7 @@ public class SelfPi implements KeyListener {
 		@Override
 		public void run() {
 
-			SelfPi.buttonLed.startBlinking();
+			SelfPi.printButtonLed.startBlinking();
 			SelfPi.this.gui.setPrinting();
 			
 			if (mode == TicketMode.BEER){
@@ -381,13 +394,13 @@ public class SelfPi implements KeyListener {
 				String line = Integer.toString(beerTicketCounter);
 				List<String> lines = Arrays.asList(line);
 				try {
-					Files.write(file, lines, Charset.forName("UTF-8"));
+					Files.write(file, lines);
 				} catch (IOException e) {
 					e.printStackTrace();
 				}				
 			}
 			
-			SelfPi.buttonLed.startSoftBlink();
+			SelfPi.printButtonLed.startSoftBlink();
 			SelfPi.this.gui.setMode(SelfPi.ticketMode);
 			
 			SelfPi.this.printerStateMachineTransition(SelfPiEvent.END_PRINTING);

@@ -71,7 +71,7 @@ public class TMT20Printer {
 	};
 	
 	// print NV graphics of key code 32 34
-		private static final int[] PRINT_FOOT_BEER = {
+		private static final int[] PRINT_FOOT_BEER_WINNER = {
 			0x1D, 0x28, 0x4C, 0x06, 0x00, 0x30, 0x45, 32, 34, 1, 1
 		};
 	
@@ -143,6 +143,30 @@ public class TMT20Printer {
 		usbPrinting.start();
 	}
 	
+	public void printHeader(){
+		if (usbPrinting != null && usbPrinting.isAlive()) {
+			System.out.println("still sending to printer");
+			return;
+		}
+		
+		UsbPipe pipe = usbEndpoint.getUsbPipe();
+		try {
+			pipe.open();
+			int sent = pipe.syncSubmit(getByteArray(PRINT_HEADER));
+			System.out.println(sent + " bytes sent");
+		} catch (UsbNotActiveException | UsbNotClaimedException
+				| UsbDisconnectedException | UsbException e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				pipe.close();
+			} catch (UsbNotActiveException | UsbNotOpenException
+					| UsbDisconnectedException | UsbException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
 	public void cut(){
 		if (usbPrinting != null && usbPrinting.isAlive()) {
 			System.out.println("still sending to printer");
@@ -191,14 +215,22 @@ public class TMT20Printer {
 			sendWithPipe(monoimg.getDitheredBits());
 			sendWithPipe(getByteArray(PRINT_DL));
 			
-			sendWithPipe(monoimg.getSentence());
+			if (mode == TicketMode.HISTORIC) {
+				sendWithPipe(monoimg.getFilenumberInBytes());
+			} else {
+				sendWithPipe(monoimg.getSentence());
+			}
 			
-			if (mode == TicketMode.BEER) {
-				sendWithPipe(getByteArray(PRINT_FOOT_BEER));
+			if (mode == TicketMode.WINNER) {
+				sendWithPipe(getByteArray(PRINT_FOOT_BEER_WINNER));
 			} 
 			if (mode == TicketMode.SOUVENIR)  {
 				sendWithPipe(getByteArray(PRINT_FOOT_SOUVENIR));
 			}
+			if (mode == TicketMode.BEER)  {
+				sendWithPipe(getByteArray(PRINT_FOOT_SOUVENIR));
+			}
+			
 			
 			if (mode != TicketMode.HISTORIC) {
 				sendWithPipe(getByteArray(CUT));

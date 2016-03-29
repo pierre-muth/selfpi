@@ -65,29 +65,37 @@ public class MonochromImage {
 			BufferedImage randomImage = ImageIO.read(listOfFiles[random]);
 			byte[] bytelist = ((DataBufferByte) randomImage.getRaster().getDataBuffer()).getData();
 			pixList = new int[randomImage.getWidth()*randomImage.getWidth()];
-			for (int i = 0; i < bytelist.length/3; i++) {
-				pixList[i] = Byte.toUnsignedInt( bytelist[i*3] );
+			for (int i = 0; i < pixList.length; i++) {
+				pixList[i] = Byte.toUnsignedInt( bytelist[i] );
 			}
 
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		
+		numberFileName = listOfFiles[random].getName().replace(".jpg", "");
 
 	}
 
 	public byte[] getSentence(){
 		int rand = (int) (Math.random()*sentences.size());
-		
-		return sentences.get(rand).concat("\n").getBytes();
+		String sentence = "     "+numberFileName.replace(".jpg", "")+"\n\n"+sentences.get(rand)+"\n";
+		return sentence.getBytes();
+	}
+	
+	public byte[] getFilenumberInBytes() {
+		String number = "     "+numberFileName+"\n";
+		return number.getBytes();
 	}
 
 	public void setFile(File file){
+		numberFileName = file.getName().replace(".jpg", "");
 		try {
 			BufferedImage bufImage = ImageIO.read(file);
 			byte[] bytelist = ((DataBufferByte) bufImage.getRaster().getDataBuffer()).getData();
 			pixList = new int[bufImage.getWidth()*bufImage.getWidth()];
-			for (int i = 0; i < bytelist.length/3; i++) {
-				pixList[i] = Byte.toUnsignedInt( bytelist[i*3] );
+			for (int i = 0; i < pixList.length; i++) {
+				pixList[i] = Byte.toUnsignedInt( bytelist[i] );
 			}
 
 		} catch (IOException e) {

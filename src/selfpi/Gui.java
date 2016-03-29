@@ -19,12 +19,16 @@ import javax.swing.SwingUtilities;
 
 public class Gui extends JPanel implements KeyListener {
 	public static final String SOUVENIR_TXT = "<html>Un souvenir ?<br>Le bouton rouge !";
-	public static final String BEER_TXT = "<html>Tente ta change...<br>Pour une bière gratos !";
+	public static final String BEER_TXT = "<html>Tente ta chance...<br>Pour une bière gratos !";
 	public static final String PRINT_TXT = "Merci !";
 	private static final String CARD_TEXT = "text";
 	private static final String CARD_HIST = "hist";
 
-	private static int historyFileIndex = 0;
+	private static int historySouvenirFileIndex = 0;
+	private static int historyBeerFileIndex = 0;
+	private static File historyBeerDirectory = new File(SelfPi.beerFilefolder);
+	private static File historySouvenirDirectory = new File(SelfPi.souvenirFilePath);
+	private TicketMode historyMode = TicketMode.BEER;
 
 	public Gui() {
 
@@ -34,10 +38,41 @@ public class Gui extends JPanel implements KeyListener {
 		add(getMainPanel(), BorderLayout.CENTER);
 	}
 	
+	public File getHistoryDirectory() {
+		if (historyMode == TicketMode.BEER)
+			return historyBeerDirectory;
+		else 
+			return historySouvenirDirectory;
+	}
 	public int getHistoryFileIndex(){
-		return historyFileIndex;
+		if (historyMode == TicketMode.BEER)
+			return historyBeerFileIndex;
+		else 
+			return historySouvenirFileIndex;
+	}
+	
+	private void incrementHistoryFileIndex() {
+		if (historyMode == TicketMode.BEER) {
+			File[] listOfFiles = historyBeerDirectory.listFiles();
+			if (historyBeerFileIndex+6 < listOfFiles.length){
+				historyBeerFileIndex +=6;
+			}
+		} else {
+			File[] listOfFiles = historySouvenirDirectory.listFiles();
+			if (historySouvenirFileIndex+6 < listOfFiles.length){
+				historySouvenirFileIndex +=6;
+			}
+		}
 	}
 
+	private void decrementHistoryFileIndex() {
+		if (historyMode == TicketMode.BEER) {
+			if (historyBeerFileIndex-6 >=0 ) historyBeerFileIndex-=6;
+		} else {
+			if (historySouvenirFileIndex-6 >=0 ) historySouvenirFileIndex-=6;
+		}
+			
+	}
 //	public void setText(final String txt) {
 //		SwingUtilities.invokeLater(new Runnable() {
 //			@Override
@@ -58,7 +93,7 @@ public class Gui extends JPanel implements KeyListener {
 		});
 	}
 
-	public void setMode(TicketMode mode) {
+	public void setMode(final TicketMode mode) {
 		System.out.println("GUI Mode: "+mode);
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
@@ -83,30 +118,41 @@ public class Gui extends JPanel implements KeyListener {
 	public void keyPressed(KeyEvent e) {
 		
 		if (e.getKeyCode() == KeyEvent.VK_LEFT){
-			if (historyFileIndex-6 >=0 ){
-				historyFileIndex-=6;
-				SwingUtilities.invokeLater(new Runnable() {
-					@Override
-					public void run() {
-						populateImages();
-					}
-				});
-			}
+			decrementHistoryFileIndex();
+			SwingUtilities.invokeLater(new Runnable() {
+				@Override
+				public void run() {
+					populateImages();
+				}
+			});
 		}
 		if (e.getKeyCode() == KeyEvent.VK_RIGHT){
-			File folder = new File(SelfPi.beerFilefolder);
-			File[] listOfFiles = folder.listFiles();
-			if (historyFileIndex+6 < listOfFiles.length){
-				historyFileIndex +=6;
-				SwingUtilities.invokeLater(new Runnable() {
-					@Override
-					public void run() {
-						populateImages();
-					}
-				});
-			}
+			incrementHistoryFileIndex();
+			SwingUtilities.invokeLater(new Runnable() {
+				@Override
+				public void run() {
+					populateImages();
+				}
+			});
 		}
-
+		if (e.getKeyCode() == KeyEvent.VK_B) {
+			historyMode = TicketMode.BEER;
+			SwingUtilities.invokeLater(new Runnable() {
+				@Override
+				public void run() {
+					populateImages();
+				}
+			});
+		}
+		if (e.getKeyCode() == KeyEvent.VK_S) {
+			historyMode = TicketMode.SOUVENIR;
+			SwingUtilities.invokeLater(new Runnable() {
+				@Override
+				public void run() {
+					populateImages();
+				}
+			});
+		}
 	}
 
 	@Override
@@ -119,16 +165,16 @@ public class Gui extends JPanel implements KeyListener {
 	}
 
 	private void populateImages(){
-		System.out.println("historyFileIndex "+historyFileIndex);
+		System.out.println("historyFileIndex of "+historyMode+": "+getHistoryFileIndex());
 		
 		getHistoryImagesPanel().removeAll();
 		getHistoryImagesPanel().repaint();
 		
-		File folder = new File(SelfPi.beerFilefolder);
+		File folder = getHistoryDirectory();
 		File[] listOfFiles = folder.listFiles();
 		Arrays.sort(listOfFiles);
 
-		for (int i = historyFileIndex; i < listOfFiles.length && i < historyFileIndex+6; i++) {
+		for (int i = getHistoryFileIndex(); i < listOfFiles.length && i < getHistoryFileIndex()+6; i++) {
 			System.out.println(listOfFiles[i].getPath());
 
 			final JLabel l = new JLabel();
@@ -141,7 +187,7 @@ public class Gui extends JPanel implements KeyListener {
 			Image resized  = new ImageIcon(listOfFiles[i].getPath()).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH); 
 			l.setIcon(new ImageIcon(resized));
 
-
+			getHistoryImagesPanel().repaint();
 		}
 
 	}
@@ -197,7 +243,7 @@ public class Gui extends JPanel implements KeyListener {
 	private JLabel historyTextLabel;
 	private JLabel getHistoryTextLabel() {
 		if (historyTextLabel == null){
-			historyTextLabel = new JLabel("<-: Precedent, ->: suivant, p: imprimer, entrer: quitter");
+			historyTextLabel = new JLabel("<-: Precedent, ->: suivant, p: imprimer, b:bière, s:souvenir, entrer: quitter");
 			historyTextLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 20));
 			historyTextLabel.setVisible(true);
 		}

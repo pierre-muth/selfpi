@@ -15,20 +15,25 @@ import java.util.Arrays;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
 public class Gui extends JPanel implements KeyListener {
 	public static final String SOUVENIR_TXT = "<html>Un souvenir ?<br>Le bouton rouge !";
-	public static final String BEER_TXT = "<html>Tente ta chance...<br>Pour une bière gratos !";
+	public static final String BEER_TXT = "<html><center>Press<br>the button";
 	public static final String PRINT_TXT = "Merci !";
 	private static final String CARD_TEXT = "text";
 	private static final String CARD_HIST = "hist";
+	private static final int COUNTDOWN_START = 10;
 
 	private static int historySouvenirFileIndex = 0;
 	private static int historyBeerFileIndex = 0;
 	private static File historyBeerDirectory = new File(SelfPi.beerFilefolder);
 	private static File historySouvenirDirectory = new File(SelfPi.souvenirFilePath);
+	
 	private TicketMode historyMode = TicketMode.BEER;
+	
+	private Thread countDownThread;
 
 	public Gui() {
 
@@ -37,7 +42,7 @@ public class Gui extends JPanel implements KeyListener {
 		add(getNorthDummyPanel(), BorderLayout.NORTH);
 		add(getMainPanel(), BorderLayout.CENTER);
 	}
-	
+
 	public File getHistoryDirectory() {
 		if (historyMode == TicketMode.BEER)
 			return historyBeerDirectory;
@@ -50,7 +55,7 @@ public class Gui extends JPanel implements KeyListener {
 		else 
 			return historySouvenirFileIndex;
 	}
-	
+
 	private void incrementHistoryFileIndex() {
 		if (historyMode == TicketMode.BEER) {
 			File[] listOfFiles = historyBeerDirectory.listFiles();
@@ -71,16 +76,16 @@ public class Gui extends JPanel implements KeyListener {
 		} else {
 			if (historySouvenirFileIndex-6 >=0 ) historySouvenirFileIndex-=6;
 		}
-			
+
 	}
-//	public void setText(final String txt) {
-//		SwingUtilities.invokeLater(new Runnable() {
-//			@Override
-//			public void run() {
-//				getTextLabel().setText(txt);
-//			}
-//		});
-//	}
+
+	public void countDown() {
+		if (countDownThread != null && countDownThread.isAlive()) return;
+		
+		countDownThread = new Thread(new CountDown());
+		countDownThread.setPriority(Thread.MAX_PRIORITY);
+		countDownThread.start();
+	}
 
 	public void setPrinting(){
 		System.out.println("GUI Mode: Printing");
@@ -104,6 +109,7 @@ public class Gui extends JPanel implements KeyListener {
 				}
 				if (mode == TicketMode.BEER) {
 					getCardLayout().show(Gui.this.getMainPanel(), CARD_TEXT);
+					textLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 110));
 					getTextLabel().setText(BEER_TXT);
 				}
 				if (mode == TicketMode.SOUVENIR) {
@@ -116,7 +122,7 @@ public class Gui extends JPanel implements KeyListener {
 
 	@Override
 	public void keyPressed(KeyEvent e) {
-		
+
 		if (e.getKeyCode() == KeyEvent.VK_LEFT){
 			decrementHistoryFileIndex();
 			SwingUtilities.invokeLater(new Runnable() {
@@ -166,10 +172,10 @@ public class Gui extends JPanel implements KeyListener {
 
 	private void populateImages(){
 		System.out.println("historyFileIndex of "+historyMode+": "+getHistoryFileIndex());
-		
+
 		getHistoryImagesPanel().removeAll();
 		getHistoryImagesPanel().repaint();
-		
+
 		File folder = getHistoryDirectory();
 		File[] listOfFiles = folder.listFiles();
 		Arrays.sort(listOfFiles);
@@ -181,7 +187,7 @@ public class Gui extends JPanel implements KeyListener {
 			l.setForeground(Color.white);
 			l.setVerticalTextPosition(JLabel.BOTTOM);
 			l.setHorizontalTextPosition(JLabel.CENTER);
-			
+
 			l.setText(listOfFiles[i].getName().replace(".jpg", ""));
 			getHistoryImagesPanel().add(l);
 			Image resized  = new ImageIcon(listOfFiles[i].getPath()).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH); 
@@ -223,8 +229,9 @@ public class Gui extends JPanel implements KeyListener {
 	private JLabel textLabel;
 	private JLabel getTextLabel() {
 		if(textLabel == null) {
-			textLabel = new JLabel(SOUVENIR_TXT);
-			textLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 50));
+			textLabel = new JLabel(BEER_TXT);
+			textLabel.setHorizontalTextPosition(SwingConstants.CENTER);
+			textLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 110));
 			textLabel.setHorizontalAlignment(JLabel.CENTER);
 		}
 		return textLabel;
@@ -243,7 +250,7 @@ public class Gui extends JPanel implements KeyListener {
 	private JLabel historyTextLabel;
 	private JLabel getHistoryTextLabel() {
 		if (historyTextLabel == null){
-			historyTextLabel = new JLabel("<-: Precedent, ->: suivant, p: imprimer, b:bière, s:souvenir, entrer: quitter");
+			historyTextLabel = new JLabel("<-: Previous, ->: Next, p: Print, entrer: Quit");
 			historyTextLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 20));
 			historyTextLabel.setVisible(true);
 		}
@@ -258,6 +265,32 @@ public class Gui extends JPanel implements KeyListener {
 			historyImagesPanel.setBackground(Color.black);
 		}
 		return historyImagesPanel;
+	}
+
+	private class CountDown implements Runnable {
+		
+		@Override
+		public void run() {
+			
+			
+			for (int counter = COUNTDOWN_START; counter >= 0; counter -= 1) {
+				final String count = "<html>"+Integer.toString(counter);
+				
+				SwingUtilities.invokeLater(new Runnable() {
+					@Override
+					public void run() {
+						getTextLabel().setText(count);
+						textLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 300));
+					}
+				});
+				
+				try { Thread.sleep(1000); } catch (InterruptedException e) {}
+			}
+			
+//			getTextLabel().setText(BEER_TXT);
+		}
+
+
 	}
 
 }

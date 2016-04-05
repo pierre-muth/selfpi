@@ -79,7 +79,7 @@ public class MonochromImage {
 
 	public byte[] getSentence(){
 		int rand = (int) (Math.random()*sentences.size());
-		String sentence = "     "+numberFileName.replace(".jpg", "")+"\n\n"+sentences.get(rand)+"\n";
+		String sentence = "     "+numberFileName.replace(".jpg", "")+"\n"+sentences.get(rand)+"\n";
 		return sentence.getBytes();
 	}
 	
@@ -232,7 +232,7 @@ public class MonochromImage {
 			String numberString = MonochromImage.this.numberFileName;
 			String path;
 			if (mode == TicketMode.BEER)
-				path = SelfPi.beerFilePath;
+				path = SelfPi.beerFilefolder;
 			else 
 				path = SelfPi.souvenirFilePath;
 

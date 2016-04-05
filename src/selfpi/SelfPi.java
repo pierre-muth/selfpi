@@ -33,13 +33,11 @@ import com.pi4j.io.gpio.event.GpioPinListenerDigital;
 
 public class SelfPi implements KeyListener {
 	public static final String souvenirFilePath = "/home/pi/selfpi/souvenir/";
-	public static final String beerFilePath = "/home/pi/selfpi/beer/";
 	public static final String beerFilefolder = "/home/pi/selfpi/beer/";
-//	public static final String beerFilefolder = "c:/temporary/beer/";
 
 	public static boolean DEBUG = false; 
 	public static PrinterState printerState = PrinterState.IDLE;
-	public static TicketMode ticketMode = TicketMode.SOUVENIR; 
+	public static TicketMode ticketMode = TicketMode.BEER; 
 
 	private static PiCamera picam;
 	private static MonochromImage monoimg = new MonochromImage();
@@ -198,10 +196,10 @@ public class SelfPi implements KeyListener {
 		case BEER:
 			switch (event) {
 			case RED_BUTTON:
-				ticketMode = TicketMode.SOUVENIR;
+				ticketMode = TicketMode.BEER;
 				break;
 			case BEER_BUTTON:
-				ticketMode = TicketMode.SOUVENIR;
+				ticketMode = TicketMode.BEER;
 				break;
 			case HISTORY_BUTTON:
 				ticketMode = TicketMode.HISTORIC;
@@ -215,7 +213,7 @@ public class SelfPi implements KeyListener {
 		case HISTORIC:
 			switch (event) {
 			case HISTORY_BUTTON:
-				ticketMode = TicketMode.SOUVENIR;
+				ticketMode = TicketMode.BEER;
 				break;
 			default:
 				break;
@@ -228,6 +226,8 @@ public class SelfPi implements KeyListener {
 		
 		// actualize gui
 		gui.setMode(ticketMode);
+		
+		// actualize beer button
 		if (ticketMode == TicketMode.BEER) {
 			beerButtonLed.low();
 		} else {
@@ -363,7 +363,8 @@ public class SelfPi implements KeyListener {
 		public void run() {
 
 			SelfPi.printButtonLed.startBlinking();
-			SelfPi.this.gui.setPrinting();
+//			SelfPi.this.gui.setPrinting();
+			SelfPi.this.gui.countDown();
 			
 			if (mode == TicketMode.BEER){
 				if (beerTicketCounter%beerTicketWin == 0){
@@ -371,7 +372,7 @@ public class SelfPi implements KeyListener {
 				}
 			}
 			
-			try { Thread.sleep(1000); } catch (InterruptedException e) {}
+			try { Thread.sleep(6000); } catch (InterruptedException e) {}
 			
 			if (mode == TicketMode.WINNER){
 				monoimg.chooseRandomImage();
@@ -379,7 +380,7 @@ public class SelfPi implements KeyListener {
 				monoimg.setPixels(picam.getAFrame());
 			}
 			
-			try { Thread.sleep(500); } catch (InterruptedException e) {}
+			try { Thread.sleep(1000); } catch (InterruptedException e) {}
 			
 			printer.printWithUsb(monoimg, mode);
 			monoimg.writeToFile(mode);

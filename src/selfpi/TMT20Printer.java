@@ -71,7 +71,7 @@ public class TMT20Printer {
 	};
 	
 	// print NV graphics of key code 32 34
-		private static final int[] PRINT_FOOT_BEER_WINNER = {
+		private static final int[] PRINT_FOOT_WINNER = {
 			0x1D, 0x28, 0x4C, 0x06, 0x00, 0x30, 0x45, 32, 34, 1, 1
 		};
 	
@@ -136,7 +136,7 @@ public class TMT20Printer {
 	
 	public void printWithUsb(MonochromImage monoimg, TicketMode mode) {
 		if (usbPrinting != null && usbPrinting.isAlive()) {
-			System.out.println("still sending to printer");
+			System.out.println("still sending data to printer");
 			return;
 		}
 		usbPrinting = new Thread(new PrintWithUsb(monoimg, mode));
@@ -212,22 +212,24 @@ public class TMT20Printer {
 		public void run() {
 			
 			sendWithPipe(getByteArray(DL_GRAPH));
-			sendWithPipe(monoimg.getDitheredBits());
+			sendWithPipe(monoimg.getDitheredBits(mode));
 			sendWithPipe(getByteArray(PRINT_DL));
 			
-			if (mode == TicketMode.HISTORIC) {
-				sendWithPipe(monoimg.getFilenumberInBytes());
-			} else {
-				sendWithPipe(monoimg.getSentence());
+			if (SelfPi.printFunnyQuote) {
+				if (mode == TicketMode.HISTORIC) {
+					sendWithPipe(monoimg.getFilenumberInBytes());
+				} else {
+					sendWithPipe(monoimg.getSentence());
+				}
 			}
 			
 			if (mode == TicketMode.WINNER) {
-				sendWithPipe(getByteArray(PRINT_FOOT_BEER_WINNER));
+				sendWithPipe(getByteArray(PRINT_FOOT_WINNER));
 			} 
 			if (mode == TicketMode.SOUVENIR)  {
 				sendWithPipe(getByteArray(PRINT_FOOT_SOUVENIR));
 			}
-			if (mode == TicketMode.BEER)  {
+			if (mode == TicketMode.REPRINT)  {
 				sendWithPipe(getByteArray(PRINT_FOOT_SOUVENIR));
 			}
 			

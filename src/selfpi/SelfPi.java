@@ -33,26 +33,36 @@ import com.pi4j.io.gpio.event.GpioPinListenerDigital;
 
 public class SelfPi implements KeyListener {
 	public static final String souvenirFilePath = "/home/pi/selfpi/souvenir/";
-	public static final String beerFilefolder = "/home/pi/selfpi/beer/";
+	public static final String funnyImageFilefolder = "/home/pi/selfpi/funny/";
 
 	public static boolean DEBUG = false; 
-	public static PrinterState printerState = PrinterState.IDLE;
-	public static TicketMode ticketMode = TicketMode.BEER; 
+	public static SelfpiState selfpiState = SelfpiState.IDLE;
+	public static TicketMode ticketMode = TicketMode.SOUVENIR;
 
 	private static PiCamera picam;
 	private static MonochromImage monoimg = new MonochromImage();
 	private static TMT20Printer printer;
-	private static ButtonLed printButtonLed;
-	private static GpioPinDigitalOutput beerButtonLed;
+	private static ButtonLed redButtonLed;
+	private static GpioPinDigitalOutput whiteButtonLed;
+	
+	private Thread pictureTakingThread;
+	private Thread printingThread;
+	private Thread waitForSharingThread;
+	
+	private Facebook facebook;
 	
 	public static final String FILECONFPATH = "/home/pi/selfpi/setup/config.txt";
 	public static final String COUNTERPATH = "/home/pi/selfpi/setup/counter.txt";
 	public static final String SENTENCESPATH = "/home/pi/selfpi/setup/phrase.txt";
+	public static final String FACEBOOKPATH = "/home/pi/selfpi/setup/facebook.txt";
 	
-	private static final String GAGNANTKEY = "GAGNANT:";
+	private static final String WINNERKEY = "WINNER:";
+	private static final String FUNNYQUOTEKEY = "FUNNYQUOTE:";
 	
-	private static int beerTicketCounter = 0;
-	private static int beerTicketWin = 100;
+	private static int WinningTicketCounter = 0;
+	private static int FrequencyTicketWin = 10;
+	
+	public static boolean printFunnyQuote = true;
 	
 	private Gui gui;
 	
@@ -68,8 +78,13 @@ public class SelfPi implements KeyListener {
 			try (BufferedReader br = new BufferedReader( new FileReader(FILECONFPATH) )){
 				
 				line = br.readLine();
-				if (line != null && line.contains(GAGNANTKEY)) {
-					beerTicketWin = Integer.parseInt( br.readLine() );
+				if (line != null && line.contains(WINNERKEY)) {
+					FrequencyTicketWin = Integer.parseInt( br.readLine() );
+				}
+				
+				line = br.readLine();
+				if (line != null && line.contains(FUNNYQUOTEKEY)) {
+					printFunnyQuote = br.readLine().contains("true");
 				}
 				
 				
@@ -79,9 +94,9 @@ public class SelfPi implements KeyListener {
 			
 			//read global counter
 			try (BufferedReader br = new BufferedReader( new FileReader(COUNTERPATH))){
-				beerTicketCounter = Integer.parseInt( br.readLine() );
+				WinningTicketCounter = Integer.parseInt( br.readLine() );
 			} catch (IOException e) {
-				System.out.println("Error in config.txt");
+				System.out.println("Error in counter.txt");
 			};
 
 			// start Pinter
@@ -91,22 +106,26 @@ public class SelfPi implements KeyListener {
 				e.printStackTrace();
 				System.exit(1);
 			}
+			
+			// Instanciate Facebook
+			facebook = new Facebook();
 
 			// Listening Button
 			GpioController gpio;
-			GpioPinDigitalInput printButton;
-			GpioPinDigitalInput beerButton;
+			GpioPinDigitalInput redButton;
+			GpioPinDigitalInput whiteButton;
 			gpio = GpioFactory.getInstance();
-			printButton = gpio.provisionDigitalInputPin(RaspiPin.GPIO_04, PinPullResistance.PULL_UP);
-			printButton.addListener(new RedButtonListener());
-			beerButton = gpio.provisionDigitalInputPin(RaspiPin.GPIO_05, PinPullResistance.PULL_UP);
-			beerButton.addListener(new BeerButtonListener());
+			redButton = gpio.provisionDigitalInputPin(RaspiPin.GPIO_04, PinPullResistance.PULL_UP);
+			redButton.addListener(new RedButtonListener());
+			whiteButton = gpio.provisionDigitalInputPin(RaspiPin.GPIO_05, PinPullResistance.PULL_UP);
+			whiteButton.addListener(new WhiteButtonListener());
 			
-			beerButtonLed = gpio.provisionDigitalOutputPin(RaspiPin.GPIO_06);
+			whiteButtonLed = gpio.provisionDigitalOutputPin(RaspiPin.GPIO_06);
+			whiteButtonLed.high();
 			
 			GpioPinPwmOutput buttonLedPin = gpio.provisionPwmOutputPin(RaspiPin.GPIO_01);
-			printButtonLed = new ButtonLed(buttonLedPin);
-			printButtonLed.startSoftBlink();
+			redButtonLed = new ButtonLed(buttonLedPin);
+			redButtonLed.startSoftBlink();
 
 			// Start Pi camera
 			picam = new PiCamera();
@@ -118,9 +137,9 @@ public class SelfPi implements KeyListener {
 	@Override
 	public void keyPressed(KeyEvent e) {
 		if (e.getKeyCode() == KeyEvent.VK_ENTER){
-			ticketStateMachineTransition(SelfPiEvent.HISTORY_BUTTON);
+			stateMachineTransition(SelfPiEvent.HISTORY_BUTTON);
 		}
-		if (e.getKeyCode() == KeyEvent.VK_P){
+		if (e.getKeyCode() == KeyEvent.VK_P && selfpiState == SelfpiState.HISTORIC){
 			int fileIndex = gui.getHistoryFileIndex();
 			File historyDirectory = gui.getHistoryDirectory();
 			
@@ -140,71 +159,113 @@ public class SelfPi implements KeyListener {
 		
 	}
 
-	protected void printerStateMachineTransition(SelfPiEvent event) {
-
-		switch (printerState) {
+	protected void stateMachineTransition(SelfPiEvent event){
+		
+		switch (selfpiState) {
 		case IDLE:
-
 			switch (event) {
 			case RED_BUTTON:
-				printerState = PrinterState.PRINTING;
+				selfpiState = SelfpiState.TAKING_PICT;
+				ticketMode = TicketMode.SOUVENIR;
+				takeApicture();
 				break;
-			case END_PRINTING:
+			case HISTORY_BUTTON:
+				selfpiState = SelfpiState.HISTORIC;
+				ticketMode = TicketMode.HISTORIC;
 				break;
-			
+			case RESET:
+				selfpiState = SelfpiState.IDLE;
+				ticketMode = TicketMode.SOUVENIR;
+				break;
+				
 			default:
 				break;
 			}
 			break;
-
+			
+		case TAKING_PICT:
+			switch (event) {
+			case PRINT:
+				selfpiState = SelfpiState.PRINTING;
+				ticketMode = TicketMode.SOUVENIR;
+				print();
+				break;
+			case RED_BUTTON:
+				break;
+			case WHITE_BUTTON:
+				break;
+			case RESET:
+				selfpiState = SelfpiState.IDLE;
+				break;
+			default:
+				break;
+			}
+			break;
+			
 		case PRINTING:
 			switch (event) {
-			case RED_BUTTON:
-				break;
 			case END_PRINTING:
-				printerState = PrinterState.IDLE;
+				selfpiState = SelfpiState.WAIT_FOR_SHARE;
+				waitForShare();
 				break;
-			
-			default:
+			case RESET:
+				selfpiState = SelfpiState.IDLE;
+				ticketMode = TicketMode.SOUVENIR;
 				break;
-			}
-			break;
-
-		
-		default:
-			break;
-		}
-	}
-	
-	protected void ticketStateMachineTransition(SelfPiEvent event){
-		
-		switch (ticketMode) {
-		case SOUVENIR:
-			switch (event) {
-			case BEER_BUTTON:
-				ticketMode = TicketMode.BEER;
-				break;
-			case HISTORY_BUTTON:
-				ticketMode = TicketMode.HISTORIC;
-				break;
-
 			default:
 				break;
 			}
 			break;
 			
-		case BEER:
+		case WAIT_FOR_SHARE:
 			switch (event) {
 			case RED_BUTTON:
-				ticketMode = TicketMode.BEER;
+				selfpiState = SelfpiState.RE_PRINTING;
+				ticketMode = TicketMode.REPRINT;
+				rePrint();
 				break;
-			case BEER_BUTTON:
-				ticketMode = TicketMode.BEER;
+			case WHITE_BUTTON:
+				selfpiState = SelfpiState.SHARING;
+				share();
 				break;
-			case HISTORY_BUTTON:
-				ticketMode = TicketMode.HISTORIC;
+			case RESET:
+				selfpiState = SelfpiState.IDLE;
+				ticketMode = TicketMode.SOUVENIR;
+				resetImage();
 				break;
-
+			default:
+				break;
+			}
+			break;
+			
+		case SHARING:
+			switch (event) {
+			case RESET:
+				selfpiState = SelfpiState.IDLE;
+				ticketMode = TicketMode.SOUVENIR;
+				resetImage();
+				break;
+			case RED_BUTTON:
+				selfpiState = SelfpiState.RE_PRINTING;
+				ticketMode = TicketMode.REPRINT;
+				rePrint();
+				break;
+			default:
+				break;
+			}
+			break;
+			
+		case RE_PRINTING:
+			switch (event) {
+			case RESET:
+				selfpiState = SelfpiState.IDLE;
+				ticketMode = TicketMode.SOUVENIR;
+				resetImage();
+				break;
+			case WHITE_BUTTON:
+				selfpiState = SelfpiState.SHARING;
+				share();
+				break;
 			default:
 				break;
 			}
@@ -213,7 +274,12 @@ public class SelfPi implements KeyListener {
 		case HISTORIC:
 			switch (event) {
 			case HISTORY_BUTTON:
-				ticketMode = TicketMode.BEER;
+				selfpiState = SelfpiState.IDLE;
+				ticketMode = TicketMode.SOUVENIR;
+				break;
+			case RESET:
+				selfpiState = SelfpiState.IDLE;
+				ticketMode = TicketMode.SOUVENIR;
 				break;
 			default:
 				break;
@@ -225,15 +291,49 @@ public class SelfPi implements KeyListener {
 		}
 		
 		// actualize gui
-		gui.setMode(ticketMode);
+		gui.setMode(selfpiState);
 		
-		// actualize beer button
-		if (ticketMode == TicketMode.BEER) {
-			beerButtonLed.low();
-		} else {
-			beerButtonLed.high();
+	}
+	
+	private void takeApicture(){
+		// Take a picture
+		pictureTakingThread = new Thread(new RunTakeAPicture());
+		pictureTakingThread.start(); 
+	}
+	
+	private void print() {
+		// print
+		printingThread = new Thread(new RunPrinting());
+		printingThread.start(); 
+	}
+	
+	private void waitForShare(){
+		// wait
+		waitForSharingThread = new Thread(new RunWaitForSharing());
+		waitForSharingThread.start(); 
+	}
+	
+	private void share(){
+		if (!monoimg.shared){
+			facebook.publishApicture(monoimg);
+			SelfPi.whiteButtonLed.high();
+			monoimg.shared = true;
 		}
-		
+	}
+	
+	private void rePrint(){
+		if (!monoimg.reprinted){
+			printer.printWithUsb(monoimg, TicketMode.REPRINT);
+			monoimg.reprinted = true;
+			SelfPi.redButtonLed.startBlinking();
+		}
+	}
+	
+	private void resetImage(){
+		monoimg.printed = false;
+		monoimg.shared = false;
+		monoimg.reprinted = false;
+		SelfPi.redButtonLed.startSoftBlink();
 	}
 	
 	public static void main(String[] args) {
@@ -265,41 +365,32 @@ public class SelfPi implements KeyListener {
 	}
 
 	class RedButtonListener implements GpioPinListenerDigital {
-		private Thread printTicketThread;
-		private long lastPrintTime;
+		
+		private long lastPressedTime;
 
 		public RedButtonListener() {
-			lastPrintTime = System.currentTimeMillis();
+			lastPressedTime = System.currentTimeMillis();
 		}
 
 		@Override
 		public void handleGpioPinDigitalStateChangeEvent(GpioPinDigitalStateChangeEvent event) {
 			if (event.getState().isHigh()) return;
+			System.out.println("Red Button pressed !");
 
 			long currentTime = System.currentTimeMillis();
-			if ( currentTime - lastPrintTime < 500 ) return; // reject if less than 500 ms
-			
-			lastPrintTime = currentTime;
-
-			if (printTicketThread != null && printTicketThread.isAlive()) return;
-			if (SelfPi.printerState == PrinterState.PRINTING) return;
+			if ( currentTime - lastPressedTime < 500 ) return; // reject if less than 500 ms
+			lastPressedTime = currentTime;
 
 			System.out.println("Red Button pressed !");
 			
-			printerStateMachineTransition(SelfPiEvent.RED_BUTTON);
-
-			// launch printing
-			printTicketThread = new Thread(new RunPrintTicket(SelfPi.ticketMode));
-			printTicketThread.start(); 
-			
-			ticketStateMachineTransition(SelfPiEvent.RED_BUTTON);
+			stateMachineTransition(SelfPiEvent.RED_BUTTON);
 		}
 	} 
 	
-	class BeerButtonListener implements GpioPinListenerDigital {
+	class WhiteButtonListener implements GpioPinListenerDigital {
 		private long lastTime;
 
-		public BeerButtonListener() {
+		public WhiteButtonListener() {
 			lastTime = System.currentTimeMillis();
 		}
 
@@ -311,11 +402,9 @@ public class SelfPi implements KeyListener {
 			if ( currentTime - lastTime < 500 ) return; // reject if less than 500 ms
 			lastTime = currentTime;
 
-			System.out.println("Beer Button pressed !");
+			System.out.println("White Button pressed !");
 			
-			ticketStateMachineTransition(SelfPiEvent.BEER_BUTTON);
-
-			
+			stateMachineTransition(SelfPiEvent.WHITE_BUTTON);
 		}
 	}
 	
@@ -330,7 +419,7 @@ public class SelfPi implements KeyListener {
 		@Override
 		public void run() {
 
-			SelfPi.printButtonLed.startBlinking();
+			SelfPi.redButtonLed.startBlinking();
 			
 			File folder = directory;
 			File[] listOfFiles = folder.listFiles();
@@ -348,51 +437,40 @@ public class SelfPi implements KeyListener {
 			
 			printer.cut();
 			printer.printHeader();
-			SelfPi.printButtonLed.startSoftBlink();
+			SelfPi.redButtonLed.startSoftBlink();
 		}
 		
 	}
 
-	private class RunPrintTicket implements Runnable{
-		private TicketMode mode;
-		public RunPrintTicket(TicketMode mode) {
-			this.mode = mode;
-		}
-
+	
+	private class RunWaitForSharing implements Runnable {
 		@Override
 		public void run() {
+			
+			// wait for printing
+			try { Thread.sleep(9000); } catch (InterruptedException e) {}
+			
+			// end
+			SelfPi.whiteButtonLed.high();
+			SelfPi.redButtonLed.startSoftBlink();
+			
+			SelfPi.this.stateMachineTransition(SelfPiEvent.RESET);
+		}
+	}
+	
+	private class RunPrinting implements Runnable {
+		
+		@Override
+		public void run() {
+			printer.printWithUsb(monoimg, ticketMode);
+			monoimg.writeToFile();
+			monoimg.printed = true;
 
-			SelfPi.printButtonLed.startBlinking();
-//			SelfPi.this.gui.setPrinting();
-			SelfPi.this.gui.countDown();
-			
-			if (mode == TicketMode.BEER){
-				if (beerTicketCounter%beerTicketWin == 0){
-					mode = TicketMode.WINNER;
-				}
-			}
-			
-			try { Thread.sleep(6000); } catch (InterruptedException e) {}
-			
-			if (mode == TicketMode.WINNER){
-				monoimg.chooseRandomImage();
-			} else {
-				monoimg.setPixels(picam.getAFrame());
-			}
-			
-			try { Thread.sleep(1000); } catch (InterruptedException e) {}
-			
-			printer.printWithUsb(monoimg, mode);
-			monoimg.writeToFile(mode);
-			
-			// printing
-			try { Thread.sleep(4000); } catch (InterruptedException e) {}
-			
-			if (mode == TicketMode.BEER || mode == TicketMode.WINNER){
-				// inc print counter
-				beerTicketCounter++;
+			// inc print counter
+			if (ticketMode != TicketMode.WINNER){
+				WinningTicketCounter++;
 				Path file = Paths.get(COUNTERPATH);
-				String line = Integer.toString(beerTicketCounter);
+				String line = Integer.toString(WinningTicketCounter);
 				List<String> lines = Arrays.asList(line);
 				try {
 					Files.write(file, lines);
@@ -400,12 +478,44 @@ public class SelfPi implements KeyListener {
 					e.printStackTrace();
 				}				
 			}
-			
-			SelfPi.printButtonLed.startSoftBlink();
-			SelfPi.this.gui.setMode(SelfPi.ticketMode);
-			
-			SelfPi.this.printerStateMachineTransition(SelfPiEvent.END_PRINTING);
 
+			// reset ticket mode
+			ticketMode = TicketMode.SOUVENIR;
+			
+			// wait for printing
+			try { Thread.sleep(4000); } catch (InterruptedException e) {}
+			
+			// set button state
+			SelfPi.whiteButtonLed.low();
+			SelfPi.redButtonLed.startSoftBlink();
+			
+			SelfPi.this.stateMachineTransition(SelfPiEvent.END_PRINTING);
+		}
+		
+	}
+	
+	private class RunTakeAPicture implements Runnable{
+
+		@Override
+		public void run() {
+
+			SelfPi.redButtonLed.startBlinking();
+			
+			if (ticketMode == TicketMode.SOUVENIR){
+				if (WinningTicketCounter%FrequencyTicketWin == 0){
+					ticketMode = TicketMode.WINNER;
+					monoimg.chooseRandomImage();
+				}
+			}
+			
+			try { Thread.sleep(4000); } catch (InterruptedException e) {}
+			
+			monoimg.setPixels(picam.getAFrame());
+			
+			try { Thread.sleep(1000); } catch (InterruptedException e) {}
+			
+			SelfPi.this.stateMachineTransition(SelfPiEvent.PRINT);
+			
 		}
 		
 	}

@@ -1,2 +1,4 @@
-GAGNANT:
-30
+WINNER:
+10
+FUNNYQUOTE:
+true

@@ -79,7 +79,24 @@ public class MonochromImage {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		
+	}
+	public void chooseFunnyImage(){
+		File folder = new File(SelfPi.funnyImageFilefolder);
+		File[] listOfFiles = folder.listFiles();
+
+		int random = (int) (Math.random()*listOfFiles.length);
+
+		try {
+			BufferedImage randomImage = ImageIO.read(listOfFiles[random]);
+			byte[] bytelist = ((DataBufferByte) randomImage.getRaster().getDataBuffer()).getData();
+			pixListWinner = new int[randomImage.getWidth()*randomImage.getWidth()];
+			for (int i = 0; i < pixListWinner.length; i++) {
+				pixListWinner[i] = Byte.toUnsignedInt( bytelist[i] );
+			}
+
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 
 	public byte[] getSentence(){
@@ -140,7 +157,7 @@ public class MonochromImage {
 		// calculate gain
 		gain = 255.0/(max-min);		
 
-		System.out.println("Gain: "+gain+", offset: "+min);
+		System.out.println("Picture Gain: "+gain+", offset: "+min);
 
 		// normalise min-max to 0 - 255
 		for (int i = 0; i < pixels.length; i++) {

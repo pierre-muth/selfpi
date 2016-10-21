@@ -48,6 +48,8 @@ public class SelfPi implements KeyListener {
 	private Thread pictureTakingThread;
 	private Thread printingThread;
 	private Thread waitForSharingThread;
+	private Thread sharingThread;
+	private Thread rePrintingThread;
 	
 	private Facebook facebook;
 	
@@ -59,8 +61,8 @@ public class SelfPi implements KeyListener {
 	private static final String WINNERKEY = "WINNER:";
 	private static final String FUNNYQUOTEKEY = "FUNNYQUOTE:";
 	
-	private static int WinningTicketCounter = 0;
-	private static int FrequencyTicketWin = 10;
+	private static int winningTicketCounter = 0;
+	private static int frequencyTicketWin = 10;
 	
 	public static boolean printFunnyQuote = true;
 	
@@ -79,7 +81,7 @@ public class SelfPi implements KeyListener {
 				
 				line = br.readLine();
 				if (line != null && line.contains(WINNERKEY)) {
-					FrequencyTicketWin = Integer.parseInt( br.readLine() );
+					frequencyTicketWin = Integer.parseInt( br.readLine() );
 				}
 				
 				line = br.readLine();
@@ -94,7 +96,7 @@ public class SelfPi implements KeyListener {
 			
 			//read global counter
 			try (BufferedReader br = new BufferedReader( new FileReader(COUNTERPATH))){
-				WinningTicketCounter = Integer.parseInt( br.readLine() );
+				winningTicketCounter = Integer.parseInt( br.readLine() );
 			} catch (IOException e) {
 				System.out.println("Error in counter.txt");
 			};
@@ -187,7 +189,6 @@ public class SelfPi implements KeyListener {
 			switch (event) {
 			case PRINT:
 				selfpiState = SelfpiState.PRINTING;
-				ticketMode = TicketMode.SOUVENIR;
 				print();
 				break;
 			case RED_BUTTON:
@@ -231,7 +232,7 @@ public class SelfPi implements KeyListener {
 			case RESET:
 				selfpiState = SelfpiState.IDLE;
 				ticketMode = TicketMode.SOUVENIR;
-				resetImage();
+				resetMode();
 				break;
 			default:
 				break;
@@ -243,7 +244,7 @@ public class SelfPi implements KeyListener {
 			case RESET:
 				selfpiState = SelfpiState.IDLE;
 				ticketMode = TicketMode.SOUVENIR;
-				resetImage();
+				resetMode();
 				break;
 			case RED_BUTTON:
 				selfpiState = SelfpiState.RE_PRINTING;
@@ -260,7 +261,7 @@ public class SelfPi implements KeyListener {
 			case RESET:
 				selfpiState = SelfpiState.IDLE;
 				ticketMode = TicketMode.SOUVENIR;
-				resetImage();
+				resetMode();
 				break;
 			case WHITE_BUTTON:
 				selfpiState = SelfpiState.SHARING;
@@ -303,7 +304,7 @@ public class SelfPi implements KeyListener {
 	
 	private void print() {
 		// print
-		printingThread = new Thread(new RunPrinting());
+		printingThread = new Thread(new RunPrinting(ticketMode));
 		printingThread.start(); 
 	}
 	
@@ -315,9 +316,10 @@ public class SelfPi implements KeyListener {
 	
 	private void share(){
 		if (!monoimg.shared){
-			facebook.publishApicture(monoimg);
-			SelfPi.whiteButtonLed.high();
 			monoimg.shared = true;
+			SelfPi.whiteButtonLed.high();
+			sharingThread = new Thread(new RunShare());
+			sharingThread.start();
 		}
 	}
 	
@@ -329,10 +331,11 @@ public class SelfPi implements KeyListener {
 		}
 	}
 	
-	private void resetImage(){
+	private void resetMode(){
 		monoimg.printed = false;
 		monoimg.shared = false;
 		monoimg.reprinted = false;
+		ticketMode = TicketMode.SOUVENIR;
 		SelfPi.redButtonLed.startSoftBlink();
 	}
 	
@@ -357,7 +360,7 @@ public class SelfPi implements KeyListener {
 
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 			public void run() {
-				System.out.println("Closing");
+				System.out.println("Closing...");
 				printer.close();
 				picam.close();
 			}
@@ -381,8 +384,6 @@ public class SelfPi implements KeyListener {
 			if ( currentTime - lastPressedTime < 500 ) return; // reject if less than 500 ms
 			lastPressedTime = currentTime;
 
-			System.out.println("Red Button pressed !");
-			
 			stateMachineTransition(SelfPiEvent.RED_BUTTON);
 		}
 	} 
@@ -408,6 +409,14 @@ public class SelfPi implements KeyListener {
 		}
 	}
 	
+	private class RunShare implements Runnable{
+
+		@Override
+		public void run() {
+			facebook.publishApicture(monoimg);
+		}
+	}
+	
 	private class RunPrintHistory implements Runnable{
 		private int historyFileIndex;
 		private File directory;
@@ -427,7 +436,7 @@ public class SelfPi implements KeyListener {
 			
 			for (int i = historyFileIndex; i < listOfFiles.length && i < historyFileIndex+6; i++) {
 				monoimg.setFile(listOfFiles[i]);
-				System.out.println("print: "+listOfFiles[i].getName());
+				System.out.println("printing: "+listOfFiles[i].getName());
 				try { Thread.sleep(500); } catch (InterruptedException e) {}
 				printer.printWithUsb(monoimg, TicketMode.HISTORIC);
 				// printing
@@ -441,7 +450,6 @@ public class SelfPi implements KeyListener {
 		}
 		
 	}
-
 	
 	private class RunWaitForSharing implements Runnable {
 		@Override
@@ -459,29 +467,28 @@ public class SelfPi implements KeyListener {
 	}
 	
 	private class RunPrinting implements Runnable {
+		TicketMode mode;
+		public RunPrinting(TicketMode mode) {
+			this.mode = mode;
+		}
 		
 		@Override
 		public void run() {
-			printer.printWithUsb(monoimg, ticketMode);
+			printer.printWithUsb(monoimg, mode);
 			monoimg.writeToFile();
 			monoimg.printed = true;
 
 			// inc print counter
-			if (ticketMode != TicketMode.WINNER){
-				WinningTicketCounter++;
-				Path file = Paths.get(COUNTERPATH);
-				String line = Integer.toString(WinningTicketCounter);
-				List<String> lines = Arrays.asList(line);
-				try {
-					Files.write(file, lines);
-				} catch (IOException e) {
-					e.printStackTrace();
-				}				
-			}
+			winningTicketCounter++;
+			Path file = Paths.get(COUNTERPATH);
+			String line = Integer.toString(winningTicketCounter);
+			List<String> lines = Arrays.asList(line);
+			try {
+				Files.write(file, lines);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}				
 
-			// reset ticket mode
-			ticketMode = TicketMode.SOUVENIR;
-			
 			// wait for printing
 			try { Thread.sleep(4000); } catch (InterruptedException e) {}
 			
@@ -501,12 +508,16 @@ public class SelfPi implements KeyListener {
 
 			SelfPi.redButtonLed.startBlinking();
 			
-			if (ticketMode == TicketMode.SOUVENIR){
-				if (WinningTicketCounter%FrequencyTicketWin == 0){
-					ticketMode = TicketMode.WINNER;
+			if (winningTicketCounter%frequencyTicketWin == 0){
+				SelfPi.ticketMode = TicketMode.WINNER;
+				if ( (winningTicketCounter/frequencyTicketWin) %2 == 0) {
 					monoimg.chooseRandomImage();
+				} else {
+					monoimg.chooseFunnyImage();
 				}
 			}
+			
+			System.out.println("Ticket Mode: "+ SelfPi.ticketMode +", count: "+winningTicketCounter+", freq:"+frequencyTicketWin);
 			
 			try { Thread.sleep(4000); } catch (InterruptedException e) {}
 			

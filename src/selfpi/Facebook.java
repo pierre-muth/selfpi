@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Calendar;
 import java.util.Date;
 
 import com.restfb.BinaryAttachment;
@@ -26,6 +27,7 @@ public class Facebook {
 	private String appID = "";
 	private String userID = "";
 	private String albumID = "";
+	private String photoMsg = "";
 	private FacebookClient fbClient;
 	private User myuser = null;    //Store references to your user and page
 	private Page mypage = null;    //for later use. In this answer's context, these
@@ -35,6 +37,7 @@ public class Facebook {
 	private static final String FACEPROFILEIDKEY = "PROFILEID:";
 	private static final String FACEUSERIDKEY = "USERID:";
 	private static final String FACEALBUMIDKEY = "ALBUMID:";
+	private static final String FACEPHOTOMSGIDKEY = "PHOTOMSG:";
 
 	public Facebook() {
 		//read config
@@ -61,6 +64,10 @@ public class Facebook {
 			if (line != null && line.contains(FACEALBUMIDKEY)) {
 				albumID = br.readLine();
 			}
+			line = br.readLine();
+			if (line != null && line.contains(FACEPHOTOMSGIDKEY)) {
+				photoMsg = br.readLine();
+			}
 
 		} catch (IOException e) {
 			System.out.println("Error in config.txt");
@@ -70,9 +77,7 @@ public class Facebook {
 			fbClient = new DefaultFacebookClient(pageAccessToken, Version.LATEST);
 			myuser = fbClient.fetchObject("me", User.class);
 			mypage = fbClient.fetchObject(pageID, Page.class);
-
-			System.out.println(myuser);
-			System.out.println(mypage);
+			System.out.println("Facebook initialized: USER: "+myuser+", PAGE: "+mypage);
 
 		} catch (FacebookException ex) {     //So that you can see what went wrong
 			ex.printStackTrace(System.err);  //in case you did anything incorrectly
@@ -82,17 +87,19 @@ public class Facebook {
 	public void publishApicture(MonochromImage monoImage) {
 		Path filePath = Paths.get( monoImage.getLastImageFile().getAbsolutePath() );
 		long time = new Date().getTime();
+		Calendar cal = Calendar.getInstance();
 		byte[] data;
 		try {
 			data = Files.readAllBytes(filePath);
-
+			String message = photoMsg +", "+ time;
 			FacebookType publishPhotoResponse = fbClient.publish(
 					albumID+"/photos", 
 					FacebookType.class,
 					BinaryAttachment.with(""+time+".jpg", data),
-					Parameter.with("message", "THEPort 2016 "+time) );
+					Parameter.with("message", message) 
+					);
 
-			System.out.println("Published photo ID: " + publishPhotoResponse.getId());
+			System.out.println("Facebook published photo ID: " + publishPhotoResponse.getId());
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

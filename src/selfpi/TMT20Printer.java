@@ -90,7 +90,7 @@ public class TMT20Printer {
 
 		device = findUsb(UsbHostManager.getUsbServices().getRootUsbHub());
 		if (device == null) {
-			System.err.println("not found.");
+			System.err.println("Epson TM-T20 not found :(");
 			System.exit(1);
 			return;
 		}
@@ -111,7 +111,7 @@ public class TMT20Printer {
 
 	public void close() {
 		try {
-			System.out.println("release usb printer");
+			System.out.println("Releasing usb printer");
 			usbInterface.release();
 		} catch (UsbNotActiveException	| UsbDisconnectedException | UsbException e) {
 			e.printStackTrace();
@@ -127,7 +127,7 @@ public class TMT20Printer {
 				if (launcher != null) return launcher;
 			} else {
 				UsbDeviceDescriptor desc = device.getUsbDeviceDescriptor();
-				System.out.println("idVendor: "+desc.idVendor()+", idProduct: "+desc.idProduct());
+				System.out.println("USB idVendor: "+desc.idVendor()+", idProduct: "+desc.idProduct());
 				if (desc.idVendor() == VENDOR_ID && desc.idProduct() == PRODUCT_ID) return device;
 			}
 		}
@@ -136,16 +136,17 @@ public class TMT20Printer {
 	
 	public void printWithUsb(MonochromImage monoimg, TicketMode mode) {
 		if (usbPrinting != null && usbPrinting.isAlive()) {
-			System.out.println("still sending data to printer");
+			System.out.println("Still sending data to printer");
 			return;
 		}
-		usbPrinting = new Thread(new PrintWithUsb(monoimg, mode));
+		TicketMode ticketMode = mode;
+		usbPrinting = new Thread(new PrintWithUsb(monoimg, ticketMode));
 		usbPrinting.start();
 	}
 	
 	public void printHeader(){
 		if (usbPrinting != null && usbPrinting.isAlive()) {
-			System.out.println("still sending to printer");
+			System.out.println("Still sending to printer");
 			return;
 		}
 		
@@ -153,7 +154,7 @@ public class TMT20Printer {
 		try {
 			pipe.open();
 			int sent = pipe.syncSubmit(getByteArray(PRINT_HEADER));
-			System.out.println(sent + " bytes sent");
+			System.out.println(sent + " bytes sent to printer");
 		} catch (UsbNotActiveException | UsbNotClaimedException
 				| UsbDisconnectedException | UsbException e) {
 			e.printStackTrace();
@@ -169,7 +170,7 @@ public class TMT20Printer {
 	
 	public void cut(){
 		if (usbPrinting != null && usbPrinting.isAlive()) {
-			System.out.println("still sending to printer");
+			System.out.println("Still sending to printer");
 			return;
 		}
 		
@@ -177,7 +178,7 @@ public class TMT20Printer {
 		try {
 			pipe.open();
 			int sent = pipe.syncSubmit(getByteArray(CUT));
-			System.out.println(sent + " bytes sent");
+			System.out.println(sent + " bytes sent to printer");
 		} catch (UsbNotActiveException | UsbNotClaimedException
 				| UsbDisconnectedException | UsbException e) {
 			e.printStackTrace();
@@ -210,7 +211,6 @@ public class TMT20Printer {
 		
 		@Override
 		public void run() {
-			
 			sendWithPipe(getByteArray(DL_GRAPH));
 			sendWithPipe(monoimg.getDitheredBits(mode));
 			sendWithPipe(getByteArray(PRINT_DL));
@@ -233,7 +233,6 @@ public class TMT20Printer {
 				sendWithPipe(getByteArray(PRINT_FOOT_SOUVENIR));
 			}
 			
-			
 			if (mode != TicketMode.HISTORIC) {
 				sendWithPipe(getByteArray(CUT));
 				sendWithPipe(getByteArray(PRINT_HEADER));
@@ -245,7 +244,7 @@ public class TMT20Printer {
 			try {
 				pipe.open();
 				int sent = pipe.syncSubmit(data);
-				System.out.println(sent + " bytes sent");
+				System.out.println(sent + " bytes sent to printer");
 			} catch (UsbNotActiveException | UsbNotClaimedException
 					| UsbDisconnectedException | UsbException e) {
 				e.printStackTrace();
@@ -262,6 +261,7 @@ public class TMT20Printer {
 	
 	
 	public static void main(String[] args) throws SecurityException, UsbException {
+		// TESTS :
 		// Search for epson TM-T20
 		UsbDevice device;
 		device = findUsb(UsbHostManager.getUsbServices().getRootUsbHub());

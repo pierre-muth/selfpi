@@ -30,7 +30,7 @@ public class PiCamera implements Runnable {
 			Process p = Runtime.getRuntime().exec(RASPIVID);
 			BufferedInputStream bis = new BufferedInputStream(p.getInputStream());
 
-			System.out.println("start camera");
+			System.out.println("starting camera");
 
 			int pixRead = bis.read();
 			int pixCount = 1; // we just read the first pixel yet

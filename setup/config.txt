@@ -1,4 +1,4 @@
 WINNER:
 10
 FUNNYQUOTE:
-true
+false

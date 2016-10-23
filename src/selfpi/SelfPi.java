@@ -57,6 +57,7 @@ public class SelfPi implements KeyListener {
 	public static final String COUNTERPATH = "/home/pi/selfpi/setup/counter.txt";
 	public static final String SENTENCESPATH = "/home/pi/selfpi/setup/phrase.txt";
 	public static final String FACEBOOKPATH = "/home/pi/selfpi/setup/facebook.txt";
+	public static final String SHARESCREENATH = "/home/pi/selfpi/setup/share_screen.png";
 	
 	private static final String WINNERKEY = "WINNER:";
 	private static final String FUNNYQUOTEKEY = "FUNNYQUOTE:";
@@ -456,7 +457,7 @@ public class SelfPi implements KeyListener {
 		public void run() {
 			
 			// wait for printing
-			try { Thread.sleep(9000); } catch (InterruptedException e) {}
+			try { Thread.sleep(10000); } catch (InterruptedException e) {}
 			
 			// end
 			SelfPi.whiteButtonLed.high();
@@ -476,6 +477,7 @@ public class SelfPi implements KeyListener {
 		public void run() {
 			printer.printWithUsb(monoimg, mode);
 			monoimg.writeToFile();
+			monoimg.setCount(winningTicketCounter);
 			monoimg.printed = true;
 
 			// inc print counter
@@ -509,10 +511,11 @@ public class SelfPi implements KeyListener {
 			SelfPi.redButtonLed.startBlinking();
 			
 			if (winningTicketCounter%frequencyTicketWin == 0){
-				SelfPi.ticketMode = TicketMode.WINNER;
 				if ( (winningTicketCounter/frequencyTicketWin) %2 == 0) {
+					SelfPi.ticketMode = TicketMode.WINNER;
 					monoimg.chooseRandomImage();
 				} else {
+					SelfPi.ticketMode = TicketMode.FUNNY;
 					monoimg.chooseFunnyImage();
 				}
 			}

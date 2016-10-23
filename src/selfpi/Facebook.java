@@ -87,11 +87,10 @@ public class Facebook {
 	public void publishApicture(MonochromImage monoImage) {
 		Path filePath = Paths.get( monoImage.getLastImageFile().getAbsolutePath() );
 		long time = new Date().getTime();
-		Calendar cal = Calendar.getInstance();
 		byte[] data;
 		try {
 			data = Files.readAllBytes(filePath);
-			String message = photoMsg +", "+ time;
+			String message = photoMsg +", "+ monoImage.getCount();
 			FacebookType publishPhotoResponse = fbClient.publish(
 					albumID+"/photos", 
 					FacebookType.class,

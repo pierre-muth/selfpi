@@ -1,0 +1,12 @@
+TOKEN:
+xxx
+APPID:
+xxx
+PROFILEID:
+xxx
+USERID:
+xxx
+ALBUMID:
+xxx
+PHOTOMSG:
+photoboothmuth

@@ -32,6 +32,7 @@ public class MonochromImage {
 	private Thread fileWriterThread;
 	private String numberFileName = "0001";
 	private ArrayList<String> sentences;
+	private int count = 0;
 	
 	private File imageFile;
 
@@ -107,6 +108,14 @@ public class MonochromImage {
 		return sentence.getBytes();
 	}
 	
+	public int getCount() {
+		return count;
+	}
+
+	public void setCount(int count) {
+		this.count = count;
+	}
+
 	public byte[] getFilenumberInBytes() {
 		String number = "     "+numberFileName+"\n";
 		return number.getBytes();
@@ -133,7 +142,7 @@ public class MonochromImage {
 
 	public int[] getDitheredMonochrom(TicketMode mode) {
 		int[] pixels;
-		if (mode == TicketMode.WINNER)
+		if (mode == TicketMode.WINNER || mode == TicketMode.FUNNY)
 			pixels = pixListWinner;
 		else
 			pixels = pixListPicture; 

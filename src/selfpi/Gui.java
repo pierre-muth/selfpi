@@ -15,16 +15,16 @@ import java.util.Arrays;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JProgressBar;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
 public class Gui extends JPanel implements KeyListener {
 	public static final String IDLE_TXT = "<html><center>Press<br>the button";
-	public static final String SHARE_TXT = "<html><center>RED: reprint<br>WHITE: share on Facebook";
-	public static final String PRINT_TXT = "Merci !";
 	private static final String CARD_TEXT = "text";
 	private static final String CARD_HIST = "hist";
-	private static final int COUNTDOWN_START = 5;
+	private static final String CARD_COUNT = "count";
+	private static final String CARD_SHARE = "share";
 
 	private static int historySouvenirFileIndex = 0;
 	private static int historyBeerFileIndex = 0;
@@ -34,6 +34,7 @@ public class Gui extends JPanel implements KeyListener {
 	private TicketMode historyMode = TicketMode.REPRINT;
 	
 	private Thread countDownThread;
+	private Thread shareProgressThread;
 
 	public Gui() {
 
@@ -86,6 +87,14 @@ public class Gui extends JPanel implements KeyListener {
 		countDownThread.setPriority(Thread.MAX_PRIORITY);
 		countDownThread.start();
 	}
+	
+	public void launchShareProgress() {
+		if (shareProgressThread != null && shareProgressThread.isAlive()) return;
+		
+		shareProgressThread = new Thread(new ShareProgress());
+		shareProgressThread.setPriority(Thread.MAX_PRIORITY);
+		shareProgressThread.start();
+	}
 
 	public void setMode(final SelfpiState state) {
 		System.out.println("GUI Mode: "+state);
@@ -98,17 +107,16 @@ public class Gui extends JPanel implements KeyListener {
 				}
 				if (state == SelfpiState.IDLE) {
 					getCardLayout().show(Gui.this.getMainPanel(), CARD_TEXT);
-					textLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 110));
-					getTextLabel().setText(IDLE_TXT);
 				}
 				if (state == SelfpiState.TAKING_PICT) {
-					getCardLayout().show(Gui.this.getMainPanel(), CARD_TEXT);
+					getCardLayout().show(Gui.this.getMainPanel(), CARD_COUNT);
 					launchCountDown();
 				}
 				if (state == SelfpiState.WAIT_FOR_SHARE) {
-					getCardLayout().show(Gui.this.getMainPanel(), CARD_TEXT);
-					textLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 50));
-					getTextLabel().setText(SHARE_TXT);
+//				if (state == SelfpiState.IDLE) {
+					getShareProgressBar().setValue(100);
+					getCardLayout().show(Gui.this.getMainPanel(), CARD_SHARE);
+					launchShareProgress();
 				}
 			}
 		});
@@ -216,6 +224,8 @@ public class Gui extends JPanel implements KeyListener {
 			mainPanel.setPreferredSize(new Dimension(1024, 256));
 			mainPanel.add(getTextLabel(), CARD_TEXT);
 			mainPanel.add(getHistoryPanel(), CARD_HIST);
+			mainPanel.add(getSharePanel(), CARD_SHARE);
+			mainPanel.add(getCountLabel(), CARD_COUNT);
 		}
 		return mainPanel;
 	}
@@ -229,6 +239,48 @@ public class Gui extends JPanel implements KeyListener {
 			textLabel.setHorizontalAlignment(JLabel.CENTER);
 		}
 		return textLabel;
+	}
+	
+	private JLabel countLabel;
+	private JLabel getCountLabel() {
+		if(countLabel == null) {
+			countLabel = new JLabel("9");
+			countLabel.setHorizontalTextPosition(SwingConstants.CENTER);
+			countLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 300));
+			countLabel.setHorizontalAlignment(JLabel.CENTER);
+		}
+		return countLabel;
+	}
+	
+	private JPanel sharePanel;
+	private JPanel getSharePanel() {
+		if(sharePanel == null) {
+			sharePanel = new JPanel(new BorderLayout());
+			sharePanel.add(getShareScreenLabel(), BorderLayout.CENTER);
+			sharePanel.add(getShareProgressBar(), BorderLayout.WEST);
+		}
+		return sharePanel;
+	}
+
+	private JProgressBar shareProgressBar;
+	private JProgressBar getShareProgressBar() {
+		if (shareProgressBar == null) {
+			shareProgressBar = new JProgressBar(0, 100);
+			shareProgressBar.setOrientation(SwingConstants.VERTICAL);
+			shareProgressBar.setPreferredSize(new Dimension(80, 256));
+			shareProgressBar.setBackground(Color.white);
+			shareProgressBar.setForeground(Color.black);
+		}
+		return shareProgressBar;
+	}
+	
+	private JLabel shareScreenLabel;
+	private JLabel getShareScreenLabel() {
+		if (shareScreenLabel == null) {
+			shareScreenLabel = new JLabel();
+			shareScreenLabel.setIcon(new ImageIcon(SelfPi.SHARESCREENATH));
+		}
+		return shareScreenLabel;
 	}
 
 	private JPanel historyPanel;
@@ -273,17 +325,34 @@ public class Gui extends JPanel implements KeyListener {
 				SwingUtilities.invokeLater(new Runnable() {
 					@Override
 					public void run() {
-						getTextLabel().setText(count);
-						textLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 300));
+						getCountLabel().setText(count);
 					}
 				});
 				
 				try { Thread.sleep(1000); } catch (InterruptedException e) {}
 			}
-			
 		}
-
-
+	}
+	
+	private class ShareProgress implements Runnable {
+		
+		@Override
+		public void run() {
+			
+			
+			for (int counter = 100; counter >= 0; counter -= 1) {
+				final int value = counter;
+				
+				SwingUtilities.invokeLater(new Runnable() {
+					@Override
+					public void run() {
+						getShareProgressBar().setValue(value);
+					}
+				});
+				
+				try { Thread.sleep(100); } catch (InterruptedException e) {}
+			}
+		}
 	}
 
 }

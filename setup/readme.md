@@ -1,0 +1,1 @@
+file 'autostart' should be moved to /home/pi/.config/lxsession/LXDE-pi/

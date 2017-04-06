@@ -22,9 +22,9 @@ import javax.usb.UsbPipe;
 public class TMT20Printer {
 
 	// The vendor ID 
-	private static final short VENDOR_ID = 0x04b8;
+	private static final short VENDOR_ID = 0x04b8;	//1208 in decimal
 	// The product ID 
-	private static final short PRODUCT_ID = 0x0e15;
+	private static short product_id = 0x0e15;	//3605 in decimal
 
 	private static final String testString = "test usb4java\n";
 	
@@ -85,9 +85,10 @@ public class TMT20Printer {
 	private UsbInterface usbInterface;
 	private Thread usbPrinting;
 	
-	public TMT20Printer() throws SecurityException, UsbException {
+	public TMT20Printer(short product_id) throws SecurityException, UsbException {
+		TMT20Printer.product_id = product_id;
+		
 		// Search for epson TM-T20
-
 		device = findUsb(UsbHostManager.getUsbServices().getRootUsbHub());
 		if (device == null) {
 			System.err.println("Epson TM-T20 not found :(");
@@ -128,7 +129,7 @@ public class TMT20Printer {
 			} else {
 				UsbDeviceDescriptor desc = device.getUsbDeviceDescriptor();
 				System.out.println("USB idVendor: "+desc.idVendor()+", idProduct: "+desc.idProduct());
-				if (desc.idVendor() == VENDOR_ID && desc.idProduct() == PRODUCT_ID) return device;
+				if (desc.idVendor() == VENDOR_ID && desc.idProduct() == product_id) return device;
 			}
 		}
 		return null;

@@ -24,7 +24,7 @@ public class TMT20Printer {
 	// The vendor ID 
 	private static final short VENDOR_ID = 0x04b8;	//1208 in decimal
 	// The product ID 
-	private static short product_id = 0x0e15;	//3605 in decimal
+	private static short product_id = 0x0e15;	//3605 in decimal, default is TM-T20II
 
 	private static final String testString = "test usb4java\n";
 	

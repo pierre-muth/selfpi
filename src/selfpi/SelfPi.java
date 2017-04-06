@@ -62,10 +62,12 @@ public class SelfPi implements KeyListener {
 	private static final String WINNERKEY = "WINNER:";
 	private static final String FUNNYQUOTEKEY = "FUNNYQUOTE:";
 	private static final String PRINTERPRODUCTIDKEY = "PRINTER_PRODUCT_ID:";
+	private static final String PRINTERDOTSKEY = "PRINTERDOTS:";
 	
 	private static int winningTicketCounter = 0;
 	private static int frequencyTicketWin = 10;
-	private static short printerProductID = 0x0e15;
+	private static short printerProductID = 0x0e15;  //
+	private static int printerdots = 576; 
 	
 	public static boolean printFunnyQuote = true;
 	
@@ -97,6 +99,10 @@ public class SelfPi implements KeyListener {
 					printerProductID = Short.parseShort( br.readLine() );
 				}
 				
+				line = br.readLine();
+				if (line != null && line.contains(PRINTERDOTSKEY)) {
+					printerdots = Integer.parseInt( br.readLine() );
+				}
 				
 			} catch (IOException e) {
 				System.out.println("Error in config.txt");
@@ -118,7 +124,11 @@ public class SelfPi implements KeyListener {
 			}
 			
 			// Instanciate Facebook
-			facebook = new Facebook();
+			try {
+				facebook = new Facebook();
+			} catch (Exception e) {
+				System.out.println("Error in Facebook setup");
+			}
 
 			// Listening Button
 			GpioController gpio;
@@ -138,7 +148,7 @@ public class SelfPi implements KeyListener {
 			redButtonLed.startSoftBlink();
 
 			// Start Pi camera
-			picam = new PiCamera();
+			picam = new PiCamera(printerdots);
 			new Thread(picam).start();
 
 		}
@@ -421,7 +431,9 @@ public class SelfPi implements KeyListener {
 
 		@Override
 		public void run() {
-			facebook.publishApicture(monoimg);
+			if (facebook != null) {
+				facebook.publishApicture(monoimg);
+			}
 		}
 	}
 	

@@ -6,10 +6,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PiCamera implements Runnable {
 
-	public static final int IMG_HEIGHT = 576;						//Printer width = 576 pixels
-	public static final int IMG_RATIO = 1;
-	public static final int IMG_WIDTH = (int) (IMG_HEIGHT * IMG_RATIO);	
-	public static final int FPS = 12;	
+	public static int IMG_HEIGHT = 576;						//Printer width = 576 pixels
+	public static int IMG_RATIO = 1;
+	public static int IMG_WIDTH = (int) (IMG_HEIGHT * IMG_RATIO);	
 	public static final String RASPIVID = 
 			"/opt/vc/bin/raspividyuv"+	//frame rate
 			" -w "+IMG_WIDTH+" -h "+IMG_HEIGHT+			//image dimension
@@ -21,6 +20,12 @@ public class PiCamera implements Runnable {
 	private int[] pixList = new int[IMG_HEIGHT * IMG_WIDTH ];
 	
 	private AtomicBoolean exit = new AtomicBoolean(false);
+	
+	public PiCamera(int size) {
+		IMG_HEIGHT = size;
+		IMG_RATIO = 1;
+		IMG_WIDTH = (int) (IMG_HEIGHT * IMG_RATIO);
+	}
 
 	@Override
 	public void run() {

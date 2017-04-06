@@ -45,6 +45,8 @@ public class SelfPi implements KeyListener {
 	private static ButtonLed redButtonLed;
 	private static GpioPinDigitalOutput whiteButtonLed;
 	
+	private static WhiteButtonListener whiteButtonListener;
+	
 	private Thread pictureTakingThread;
 	private Thread printingThread;
 	private Thread waitForSharingThread;
@@ -138,7 +140,8 @@ public class SelfPi implements KeyListener {
 			redButton = gpio.provisionDigitalInputPin(RaspiPin.GPIO_04, PinPullResistance.PULL_UP);
 			redButton.addListener(new RedButtonListener());
 			whiteButton = gpio.provisionDigitalInputPin(RaspiPin.GPIO_05, PinPullResistance.PULL_UP);
-			whiteButton.addListener(new WhiteButtonListener());
+			whiteButtonListener = new WhiteButtonListener();
+			whiteButton.addListener(whiteButtonListener);
 			
 			whiteButtonLed = gpio.provisionDigitalOutputPin(RaspiPin.GPIO_06);
 			whiteButtonLed.high();
@@ -154,6 +157,7 @@ public class SelfPi implements KeyListener {
 		}
 	}
 	
+	// keyboard 
 	@Override
 	public void keyPressed(KeyEvent e) {
 		if (e.getKeyCode() == KeyEvent.VK_ENTER){
@@ -167,6 +171,11 @@ public class SelfPi implements KeyListener {
 				
 			printHistoryThread = new Thread(new RunPrintHistory(historyDirectory, fileIndex));
 			printHistoryThread.start();
+		}
+		if (e.getKeyCode() == KeyEvent.VK_SPACE || 
+				e.getKeyCode() == KeyEvent.VK_NUMPAD0 ||
+				e.getKeyCode() == KeyEvent.VK_0){
+			whiteButtonListener.doPress();
 		}
 	}
 
@@ -416,7 +425,14 @@ public class SelfPi implements KeyListener {
 		@Override
 		public void handleGpioPinDigitalStateChangeEvent(GpioPinDigitalStateChangeEvent event) {
 			if (event.getState().isHigh()) return;
-
+			handle();
+		}
+		
+		public void doPress() {
+			handle();
+		}
+		
+		private void handle() {
 			long currentTime = System.currentTimeMillis();
 			if ( currentTime - lastTime < 500 ) return; // reject if less than 500 ms
 			lastTime = currentTime;

@@ -46,6 +46,7 @@ public class SelfPi implements KeyListener {
 	private static GpioPinDigitalOutput whiteButtonLed;
 	
 	private static WhiteButtonListener whiteButtonListener;
+	private static RedButtonListener redButtonListener;
 	
 	private Thread pictureTakingThread;
 	private Thread printingThread;
@@ -137,8 +138,11 @@ public class SelfPi implements KeyListener {
 			GpioPinDigitalInput redButton;
 			GpioPinDigitalInput whiteButton;
 			gpio = GpioFactory.getInstance();
+			
 			redButton = gpio.provisionDigitalInputPin(RaspiPin.GPIO_04, PinPullResistance.PULL_UP);
-			redButton.addListener(new RedButtonListener());
+			redButtonListener = new RedButtonListener();
+			redButton.addListener(redButtonListener);
+			
 			whiteButton = gpio.provisionDigitalInputPin(RaspiPin.GPIO_05, PinPullResistance.PULL_UP);
 			whiteButtonListener = new WhiteButtonListener();
 			whiteButton.addListener(whiteButtonListener);
@@ -405,12 +409,20 @@ public class SelfPi implements KeyListener {
 		@Override
 		public void handleGpioPinDigitalStateChangeEvent(GpioPinDigitalStateChangeEvent event) {
 			if (event.getState().isHigh()) return;
-			System.out.println("Red Button pressed !");
-
+			handle();
+		}
+		
+		public void doPress() {
+			handle();
+		}
+		
+		private void handle() {
 			long currentTime = System.currentTimeMillis();
 			if ( currentTime - lastPressedTime < 500 ) return; // reject if less than 500 ms
 			lastPressedTime = currentTime;
-
+			
+			System.out.println("Red Button pressed !");
+			
 			stateMachineTransition(SelfPiEvent.RED_BUTTON);
 		}
 	} 

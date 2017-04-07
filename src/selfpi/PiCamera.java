@@ -25,6 +25,8 @@ public class PiCamera implements Runnable {
 		IMG_HEIGHT = size;
 		IMG_RATIO = 1;
 		IMG_WIDTH = (int) (IMG_HEIGHT * IMG_RATIO);
+		pixBuf = new int[IMG_HEIGHT * IMG_WIDTH ];
+		pixList = new int[IMG_HEIGHT * IMG_WIDTH ];
 	}
 
 	@Override

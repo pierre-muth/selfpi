@@ -179,7 +179,7 @@ public class SelfPi implements KeyListener {
 		if (e.getKeyCode() == KeyEvent.VK_SPACE || 
 				e.getKeyCode() == KeyEvent.VK_NUMPAD0 ||
 				e.getKeyCode() == KeyEvent.VK_0){
-			whiteButtonListener.doPress();
+			redButtonListener.doPress();
 		}
 	}
 

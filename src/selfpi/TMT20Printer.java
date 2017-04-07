@@ -31,7 +31,7 @@ public class TMT20Printer {
 	private static final int width = PiCamera.IMG_HEIGHT;  // We print 90 deg rotated
 	private static final int height = PiCamera.IMG_WIDTH;
 	
-	/* download graphic data raster
+	/* download graphic data to graphic buffer (TM-T20/II)
 	 * Hex 1D 38 4C p1 p2 p3 p4 30 53 a kc1 kc2 b xL xH yL yH [c d1...dk]1...[c d1...dk]b
 	 * */
 	private static final int dataLength = ((width/8)*height) +11;
@@ -53,13 +53,32 @@ public class TMT20Printer {
 		0x31						// c
 	};											
 
-	/* print graphic data
+	/* print graphic data from graphic buffer
 	 * Hex 1D 28 4C 06 00 30 55 kc1 kc2 x y
 	 */
-	private static final int[] PRINT_DL = {
+	private static final int[] PRINT_GRAPH_BUF = {
 		0x1D, 0x28, 0x4C, 0x06, 0x00, 0x30, 0x55, 0x20, 0x20, 0x01, 0x01
 	};
-
+	
+	/* Store the graphics data in the print buffer (raster format) (TM-T88IV)
+	 * Hex 1D 38 4C p1 p2 p3 p4 30 70 a bx by c xL xH yL yH d1...dk
+	 */
+	private static final int[] DL_PRINT_BUF = {
+			0x1D, 0x38, 0x4C, 			// download graphic data
+			p1, p2, p3, p4,				// byte size after m (+11)
+			0x30, 0x70, 0x30, 			// m, fn, a
+			0x01, 0x01, 0x31,			// key code, b
+			xL, xH, yL, yH,				// xL, xH, yL, yH
+			0x31						// c
+		};	
+	
+	/* Print the graphics data in the print buffer
+	 * Hex 1D 28 4C 02 00 30 fn
+	 */
+	private static final int[] PRINT_PRINT_BUF = {
+		0x1D, 0x28, 0x4C, 0x02, 0x00, 0x30, 0x32
+	};
+	
 	// print NV graphics of key code 32 32   
 	private static final int[] PRINT_HEADER = {
 		0x1D, 0x28, 0x4C, 0x06, 0x00, 0x30, 0x45, 32, 32, 1, 1
@@ -214,7 +233,7 @@ public class TMT20Printer {
 		public void run() {
 			sendWithPipe(getByteArray(DL_GRAPH));
 			sendWithPipe(monoimg.getDitheredBits(mode));
-			sendWithPipe(getByteArray(PRINT_DL));
+			sendWithPipe(getByteArray(PRINT_GRAPH_BUF));
 			
 			if (SelfPi.printFunnyQuote) {
 				if (mode == TicketMode.HISTORIC) {

@@ -5,15 +5,15 @@ import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PiCamera implements Runnable {
-
-	public static int IMG_HEIGHT = 576;						//Printer width = 576 pixels
+	// defaults :
+	public static int IMG_HEIGHT = 576;		//Printer width = 576 pixels
 	public static int IMG_RATIO = 1;
 	public static int IMG_WIDTH = (int) (IMG_HEIGHT * IMG_RATIO);	
-	public static final String RASPIVID = 
-			"/opt/vc/bin/raspividyuv"+	//frame rate
-			" -w "+IMG_WIDTH+" -h "+IMG_HEIGHT+			//image dimension
-			" -p 0,0,1024,1024"+
-			" -ex night -fps 0 -ev +0.1 -co 50 -t 0 -cfx 128:128 -o -";				//no timeout, monochom effect
+	public static String RASPIVID = 
+			"/opt/vc/bin/raspividyuv"+	
+			" -w "+IMG_WIDTH+" -h "+IMG_HEIGHT+		//image dimension
+			" -p 0,0,1024,1024"+					//preview position
+			" -ex night -fps 0 -ev +0.1 -co 50 -t 0 -cfx 128:128 -o -";		//no timeout, monochom effect
 
 
 	private int[] pixBuf = new int[IMG_HEIGHT * IMG_WIDTH ];
@@ -21,12 +21,29 @@ public class PiCamera implements Runnable {
 	
 	private AtomicBoolean exit = new AtomicBoolean(false);
 	
+	public PiCamera() {
+		IMG_HEIGHT = SelfPi.IMG_HEIGHT;
+		IMG_WIDTH = SelfPi.IMG_WIDTH;
+		pixBuf = new int[IMG_HEIGHT * IMG_WIDTH ];
+		pixList = new int[IMG_HEIGHT * IMG_WIDTH ];
+		RASPIVID = 
+				"/opt/vc/bin/raspividyuv"+	//frame rate
+				" -w "+IMG_WIDTH+" -h "+IMG_HEIGHT+			//image dimension
+				" -p 0,0,1024,1024"+
+				" -ex night -fps 0 -ev +0.1 -co 50 -t 0 -cfx 128:128 -o -";				//no timeout, monochom effect
+	}
+	
 	public PiCamera(int size) {
 		IMG_HEIGHT = size;
 		IMG_RATIO = 1;
 		IMG_WIDTH = (int) (IMG_HEIGHT * IMG_RATIO);
 		pixBuf = new int[IMG_HEIGHT * IMG_WIDTH ];
 		pixList = new int[IMG_HEIGHT * IMG_WIDTH ];
+		RASPIVID = 
+				"/opt/vc/bin/raspividyuv"+	//frame rate
+				" -w "+IMG_WIDTH+" -h "+IMG_HEIGHT+			//image dimension
+				" -p 0,0,1024,1024"+
+				" -ex night -fps 0 -ev +0.1 -co 50 -t 0 -cfx 128:128 -o -";				//no timeout, monochom effect
 	}
 
 	@Override

@@ -21,30 +21,30 @@ import javax.usb.UsbPipe;
 
 public class TMT20Printer {
 
+	private static final String testString = "test usb4java\n";
 	// The vendor ID 
 	private static final short VENDOR_ID = 0x04b8;	//1208 in decimal
 	// The product ID 
 	private static short product_id = 0x0e15;	//3605 in decimal, default is TM-T20II
 
-	private static final String testString = "test usb4java\n";
+	// default values
+	private static int width = PiCamera.IMG_HEIGHT;  // We print 90 deg rotated
+	private static int height = PiCamera.IMG_WIDTH;
 	
-	private static final int width = PiCamera.IMG_HEIGHT;  // We print 90 deg rotated
-	private static final int height = PiCamera.IMG_WIDTH;
-	
+	private static int dataLength = ((width/8)*height) +11;
+	private static int p1 = 0xFF & dataLength;
+	private static int p2 = dataLength >>>  8;
+	private static int p3 = dataLength >>> 16;
+	private static int p4 = dataLength >>> 24;
+	private static int xL = 0xFF & width;
+	private static int xH = width >>> 8;
+	private static int yL = 0xFF & height;
+	private static int yH = height >>> 8;
+
 	/* download graphic data to graphic buffer (TM-T20/II)
 	 * Hex 1D 38 4C p1 p2 p3 p4 30 53 a kc1 kc2 b xL xH yL yH [c d1...dk]1...[c d1...dk]b
 	 * */
-	private static final int dataLength = ((width/8)*height) +11;
-	private static final int p1 = 0xFF & dataLength;
-	private static final int p2 = dataLength >>>  8;
-	private static final int p3 = dataLength >>> 16;
-	private static final int p4 = dataLength >>> 24;
-	private static final int xL = 0xFF & width;
-	private static final int xH = width >>> 8;
-	private static final int yL = 0xFF & height;
-	private static final int yH = height >>> 8;
-
-	private static final int[] DL_GRAPH = {
+	private static int[] DL_TO_GRAPHIC = {
 		0x1D, 0x38, 0x4C, 			// download graphic data
 		p1, p2, p3, p4,				// byte size after m (+11)
 		0x30, 0x53, 0x30, 			// m, fn, a
@@ -56,18 +56,18 @@ public class TMT20Printer {
 	/* print graphic data from graphic buffer
 	 * Hex 1D 28 4C 06 00 30 55 kc1 kc2 x y
 	 */
-	private static final int[] PRINT_GRAPH_BUF = {
+	private static final int[] PRINT_GRAPHIC_BUF = {
 		0x1D, 0x28, 0x4C, 0x06, 0x00, 0x30, 0x55, 0x20, 0x20, 0x01, 0x01
 	};
 	
 	/* Store the graphics data in the print buffer (raster format) (TM-T88IV)
 	 * Hex 1D 38 4C p1 p2 p3 p4 30 70 a bx by c xL xH yL yH d1...dk
 	 */
-	private static final int[] DL_PRINT_BUF = {
+	private static int[] DL_TO_PRINT_BUF = {
 			0x1D, 0x38, 0x4C, 			// download graphic data
 			p1, p2, p3, p4,				// byte size after m (+11)
 			0x30, 0x70, 0x30, 			// m, fn, a
-			0x01, 0x01, 0x31,			// key code, b
+			0x01, 0x01, 0x31,			// bx by c
 			xL, xH, yL, yH,				// xL, xH, yL, yH
 			0x31						// c
 		};	
@@ -127,6 +127,53 @@ public class TMT20Printer {
 
 		usbEndpoint = usbInterface.getUsbEndpoint((byte) 1);
 		System.out.println("Printer started");
+		
+		width = SelfPi.IMG_HEIGHT;  // We print 90 deg rotated
+		height = SelfPi.IMG_WIDTH;
+		
+		dataLength = ((width/8)*height) +11;
+		p1 = 0xFF & dataLength;
+		p2 = dataLength >>>  8;
+		p3 = dataLength >>> 16;
+		p4 = dataLength >>> 24;
+		xL = 0xFF & width;
+		xH = width >>> 8;
+		yL = 0xFF & height;
+		yH = height >>> 8;
+
+		/* download graphic data to graphic buffer (TM-T20/II)
+		 * Hex 1D 38 4C p1 p2 p3 p4 30 53 a kc1 kc2 b xL xH yL yH [c d1...dk]1...[c d1...dk]b
+		 * */
+		DL_TO_GRAPHIC = new int[] {
+			0x1D, 0x38, 0x4C, 			// download graphic data
+			p1, p2, p3, p4,				// byte size after m (+11)
+			0x30, 0x53, 0x30, 			// m, fn, a
+			0x20, 0x20, 0x01,			// key code, b
+			xL, xH, yL, yH,				// xL, xH, yL, yH
+			0x31						// c
+		};											
+
+		dataLength = ((width/8)*height) +10;
+		p1 = 0xFF & dataLength;
+		p2 = dataLength >>>  8;
+		p3 = dataLength >>> 16;
+		p4 = dataLength >>> 24;
+		xL = 0xFF & width;
+		xH = width >>> 8;
+		yL = 0xFF & height;
+		yH = height >>> 8;
+		
+		/* Store the graphics data in the print buffer (raster format) (TM-T88IV)
+		 * Hex 1D 38 4C p1 p2 p3 p4 30 70 a bx by c xL xH yL yH d1...dk
+		 */
+		DL_TO_PRINT_BUF = new int[] {
+				0x1D, 0x38, 0x4C, 			// download graphic data
+				p1, p2, p3, p4,				// byte size after m (+10)
+				0x30, 0x70, 0x30, 			// m, fn, a
+				0x01, 0x01, 0x31,			// bx by c
+				xL, xH, yL, yH				// xL, xH, yL, yH
+			};	
+		
 	}
 
 	public void close() {
@@ -231,9 +278,15 @@ public class TMT20Printer {
 		
 		@Override
 		public void run() {
-			sendWithPipe(getByteArray(DL_GRAPH));
-			sendWithPipe(monoimg.getDitheredBits(mode));
-			sendWithPipe(getByteArray(PRINT_GRAPH_BUF));
+			if (SelfPi.usePrinterGraphicCommand) {
+				sendWithPipe(getByteArray(DL_TO_GRAPHIC));
+				sendWithPipe(monoimg.getDitheredBits(mode));
+				sendWithPipe(getByteArray(PRINT_GRAPHIC_BUF));
+			} else {
+				sendWithPipe(getByteArray(DL_TO_PRINT_BUF));
+				sendWithPipe(monoimg.getDitheredBits(mode));
+				sendWithPipe(getByteArray(PRINT_PRINT_BUF));
+			}
 			
 			if (SelfPi.printFunnyQuote) {
 				if (mode == TicketMode.HISTORIC) {

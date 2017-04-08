@@ -40,7 +40,7 @@ public class Gui extends JPanel implements KeyListener {
 
 		setLayout(new BorderLayout());
 		setBackground(Color.white);
-		add(getNorthDummyPanel(), BorderLayout.NORTH);
+		add(getDummyPanel(), BorderLayout.NORTH);
 		add(getMainPanel(), BorderLayout.CENTER);
 	}
 
@@ -209,7 +209,7 @@ public class Gui extends JPanel implements KeyListener {
 	}
 
 	private JPanel northDummyPanel;
-	private JPanel getNorthDummyPanel() {
+	private JPanel getDummyPanel() {
 		if (northDummyPanel == null) {
 			northDummyPanel = new JPanel();
 			northDummyPanel.setPreferredSize(new Dimension(1024, 1000));

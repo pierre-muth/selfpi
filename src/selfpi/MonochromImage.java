@@ -20,8 +20,6 @@ import org.apache.commons.lang3.text.WordUtils;
 
 public class MonochromImage {
 	public static final float JPEG_QUALITY = 0.97f;	
-	public static final int HEIGHT = PiCamera.IMG_HEIGHT;
-	public static final int WIDTH = PiCamera.IMG_WIDTH;
 	public boolean printed = false;
 	public boolean shared = false;
 	public boolean reprinted = false;
@@ -141,6 +139,9 @@ public class MonochromImage {
 	}
 
 	public int[] getDitheredMonochrom(TicketMode mode) {
+		int HEIGHT = SelfPi.IMG_HEIGHT;
+		int WIDTH = SelfPi.IMG_WIDTH;
+		
 		int[] pixels;
 		if (mode == TicketMode.WINNER || mode == TicketMode.FUNNY)
 			pixels = pixListWinner;
@@ -207,6 +208,8 @@ public class MonochromImage {
 	}
 
 	public byte[] getDitheredBits(TicketMode mode) {
+		int HEIGHT = SelfPi.IMG_HEIGHT;
+		int WIDTH = SelfPi.IMG_WIDTH;
 
 		int[] pixDithered = getDitheredMonochrom(mode);
 
@@ -248,6 +251,9 @@ public class MonochromImage {
 
 
 		public ImageFileWriter() {
+			int HEIGHT = SelfPi.IMG_HEIGHT;
+			int WIDTH = SelfPi.IMG_WIDTH;
+
 			bufImage = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_BYTE_GRAY);
 			wr = bufImage.getData().createCompatibleWritableRaster();
 			imageWriteParam = imageWriter.getDefaultWriteParam();
@@ -258,6 +264,9 @@ public class MonochromImage {
 
 		@Override
 		public void run() {
+			int HEIGHT = SelfPi.IMG_HEIGHT;
+			int WIDTH = SelfPi.IMG_WIDTH;
+
 			// make image
 			//			wr.setPixels(0, 0, WIDTH, HEIGHT, getDitheredMonochrom());   //dithered image
 			wr.setPixels(0, 0, WIDTH, HEIGHT, pixListPicture);	 // grayscale image		

@@ -1,5 +1,9 @@
 package selfpi;
 
+/**
+ * to launch: sudo java -cp ".:/home/pi/selfpi/lib/*" selfpi.Launcher 
+ */
+
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.io.BufferedReader;
@@ -11,9 +15,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
-/**
- * to launch: sudo java -cp ".:/home/pi/selfpi/lib/*" selfpi.Launcher 
- */
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -52,7 +53,6 @@ public class SelfPi implements KeyListener {
 	private Thread printingThread;
 	private Thread waitForSharingThread;
 	private Thread sharingThread;
-	private Thread rePrintingThread;
 	
 	private Facebook facebook;
 	
@@ -66,13 +66,22 @@ public class SelfPi implements KeyListener {
 	private static final String FUNNYQUOTEKEY = "FUNNYQUOTE:";
 	private static final String PRINTERPRODUCTIDKEY = "PRINTER_PRODUCT_ID:";
 	private static final String PRINTERDOTSKEY = "PRINTERDOTS:";
+	private static final String USE_PRINTER_GRAPHIC_COMMAND_KEY = "USE_PRINTER_GRAPHIC_COMMAND:";
+	private static final String USE_FACEBOOK_KEY = "USE_FACEBOOK:";
 	
-	private static int winningTicketCounter = 0;
-	private static int frequencyTicketWin = 10;
-	private static short printerProductID = 0x0e15;  //
-	private static int printerdots = 576; 
-	
+	public static int winningTicketCounter = 0;
+
+	// default values
+	public static int frequencyTicketWin = 10;
 	public static boolean printFunnyQuote = true;
+	public static short printerProductID = 0x0e15;  //
+	public static int printerdots = 576;
+	public static boolean usePrinterGraphicCommand = false; 
+	public static boolean useFacebook = false; 
+	
+	public static int IMG_HEIGHT = 576;
+	public static int IMG_RATIO = 1;
+	public static int IMG_WIDTH = (int) (IMG_HEIGHT * IMG_RATIO);
 	
 	private Gui gui;
 	
@@ -105,10 +114,23 @@ public class SelfPi implements KeyListener {
 				line = br.readLine();
 				if (line != null && line.contains(PRINTERDOTSKEY)) {
 					printerdots = Integer.parseInt( br.readLine() );
+					IMG_HEIGHT = printerdots;
+					IMG_RATIO = 1;
+					IMG_WIDTH = (int) (IMG_HEIGHT * IMG_RATIO);
 				}
 				
+				line = br.readLine();
+				if (line != null && line.contains(USE_PRINTER_GRAPHIC_COMMAND_KEY)) {
+					usePrinterGraphicCommand = br.readLine().contains("true");
+				}
+				
+				line = br.readLine();
+				if (line != null && line.contains(USE_FACEBOOK_KEY)) {
+					useFacebook = br.readLine().contains("true");
+				}
+
 			} catch (IOException e) {
-				System.out.println("Error in config.txt");
+				System.out.println("Error in config.txt, try with default values");
 			};
 			
 			//read global counter
@@ -127,10 +149,12 @@ public class SelfPi implements KeyListener {
 			}
 			
 			// Instanciate Facebook
-			try {
-				facebook = new Facebook();
-			} catch (Exception e) {
-				System.out.println("Error in Facebook setup");
+			if (useFacebook) {
+				try {
+					facebook = new Facebook();
+				} catch (Exception e) {
+					System.out.println("Error in Facebook setup");
+				}
 			}
 
 			// Listening Button
@@ -155,7 +179,7 @@ public class SelfPi implements KeyListener {
 			redButtonLed.startSoftBlink();
 
 			// Start Pi camera
-			picam = new PiCamera(printerdots);
+			picam = new PiCamera();
 			new Thread(picam).start();
 
 		}

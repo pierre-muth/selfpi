@@ -40,7 +40,7 @@ public class SelfPi implements KeyListener {
 	public static final String FACEBOOK_CONFIG_FILE_PATH = ROOTPATH+"/setup/facebook.txt";
 	public static final String GUI_SCREENS_PATH = ROOTPATH+"/setup/";
 	
-	public static final String souvenirFilePath = ROOTPATH+"/souvenir/";
+	public static final String souvenirImageFilePath = ROOTPATH+"/souvenir/";
 	public static final String funnyImageFilefolder = ROOTPATH+"/funny/";
 
 	public static boolean DEBUG = false; 
@@ -66,6 +66,7 @@ public class SelfPi implements KeyListener {
 	
 	private static final String WINNERKEY = "WINNER:";
 	private static final String FUNNYQUOTEKEY = "FUNNYQUOTE:";
+	private static final String FUNNYIMAGESKEY = "FUNNYIMAGES:";
 	private static final String PRINTERPRODUCTIDKEY = "PRINTER_PRODUCT_ID:";
 	private static final String PRINTERDOTSKEY = "PRINTERDOTS:";
 	private static final String USE_PRINTER_GRAPHIC_COMMAND_KEY = "USE_PRINTER_GRAPHIC_COMMAND:";
@@ -80,7 +81,8 @@ public class SelfPi implements KeyListener {
 	public static short printerProductID = 0x0e15;  //
 	public static int printerdots = 576;
 	public static boolean usePrinterGraphicCommand = false; 
-	public static boolean useFacebook = false; 
+	public static boolean useFacebook = false;
+	public static boolean useFunnyImages = false; 
 	public static boolean guiVerticalOrientation = false;
 	
 	public static int IMG_HEIGHT = 576;
@@ -104,6 +106,10 @@ public class SelfPi implements KeyListener {
 				line = br.readLine();
 				if (line != null && line.contains(FUNNYQUOTEKEY)) {
 					printFunnyQuote = br.readLine().contains("true");
+				}
+				line = br.readLine();
+				if (line != null && line.contains(FUNNYIMAGESKEY)) {
+					useFunnyImages = br.readLine().contains("true");
 				}
 				line = br.readLine();
 				if (line != null && line.contains(PRINTERPRODUCTIDKEY)) {
@@ -592,12 +598,12 @@ public class SelfPi implements KeyListener {
 			SelfPi.redButtonLed.startBlinking();
 			
 			if (winningTicketCounter%frequencyTicketWin == 0){
-				if ( (winningTicketCounter/frequencyTicketWin) %2 == 0) {
-					SelfPi.ticketMode = TicketMode.WINNER;
-					monoimg.chooseRandomImage();
-				} else {
+				if ( (winningTicketCounter/frequencyTicketWin) %2 == 0 && SelfPi.useFunnyImages) {
 					SelfPi.ticketMode = TicketMode.FUNNY;
 					monoimg.chooseFunnyImage();
+				} else {
+					SelfPi.ticketMode = TicketMode.WINNER;
+					monoimg.chooseRandomImage();
 				}
 			}
 			

@@ -16,6 +16,7 @@ import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
+import javax.swing.JTextArea;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
@@ -34,7 +35,7 @@ public class Gui extends JPanel implements KeyListener {
 	private static int historySouvenirFileIndex = 0;
 	private static int historyBeerFileIndex = 0;
 	private static File historyBeerDirectory = new File(SelfPi.funnyImageFilefolder);
-	private static File historySouvenirDirectory = new File(SelfPi.souvenirFilePath);
+	private static File historySouvenirDirectory = new File(SelfPi.souvenirImageFilePath);
 	
 	private TicketMode historyMode = TicketMode.REPRINT;
 	
@@ -221,7 +222,7 @@ public class Gui extends JPanel implements KeyListener {
 	private JPanel getDummyPanel() {
 		if (dummyPanel == null) {
 			dummyPanel = new JPanel();
-			dummyPanel.setPreferredSize(new Dimension(1000, 1000));
+			dummyPanel.setPreferredSize(new Dimension(1024, 1024));
 		}
 		return dummyPanel;
 	}
@@ -272,7 +273,11 @@ public class Gui extends JPanel implements KeyListener {
 		if(sharePanel == null) {
 			sharePanel = new JPanel(new BorderLayout());
 			sharePanel.add(getShareScreenLabel(), BorderLayout.CENTER);
-			sharePanel.add(getShareProgressBar(), BorderLayout.WEST);
+			if (verticalOrientation) {
+				sharePanel.add(getShareProgressBar(), BorderLayout.WEST);
+			} else {
+				sharePanel.add(getShareProgressBar(), BorderLayout.SOUTH);
+			}
 		}
 		return sharePanel;
 	}
@@ -281,8 +286,13 @@ public class Gui extends JPanel implements KeyListener {
 	private JProgressBar getShareProgressBar() {
 		if (shareProgressBar == null) {
 			shareProgressBar = new JProgressBar(0, 100);
-			shareProgressBar.setOrientation(SwingConstants.VERTICAL);
-			shareProgressBar.setPreferredSize(new Dimension(80, 256));
+			if (verticalOrientation) {
+				shareProgressBar.setOrientation(SwingConstants.VERTICAL);
+				shareProgressBar.setPreferredSize(new Dimension(80, 256));
+			} else {
+				shareProgressBar.setOrientation(SwingConstants.HORIZONTAL);
+				shareProgressBar.setPreferredSize(new Dimension(256, 80));
+			}
 			shareProgressBar.setBackground(Color.white);
 			shareProgressBar.setForeground(Color.black);
 		}
@@ -306,20 +316,21 @@ public class Gui extends JPanel implements KeyListener {
 	private JPanel getHistoryPanel() {
 		if (historyPanel == null) {
 			historyPanel = new JPanel(new BorderLayout());
-			historyPanel.add(getHistoryTextLabel(), BorderLayout.SOUTH);
+			historyPanel.add(getHistoryText(), BorderLayout.SOUTH);
 			historyPanel.add(getHistoryImagesPanel(), BorderLayout.CENTER);
 		}
 		return historyPanel;
 	}
 
-	private JLabel historyTextLabel;
-	private JLabel getHistoryTextLabel() {
-		if (historyTextLabel == null){
-			historyTextLabel = new JLabel("<-: Previous, ->: Next, p: Print, entrer: Quit");
-			historyTextLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 20));
-			historyTextLabel.setVisible(true);
+	private JTextArea historyText;
+	private JTextArea getHistoryText() {
+		if (historyText == null){
+			historyText = new JTextArea("<-: Previous, ->: Next, p: Print, entrer: Quit");
+			historyText.setFont(new Font(Font.MONOSPACED, Font.BOLD, 20));
+			historyText.setLineWrap(true);
+			historyText.setVisible(true);
 		}
-		return historyTextLabel;
+		return historyText;
 	}
 
 	private JPanel historyImagesPanel;

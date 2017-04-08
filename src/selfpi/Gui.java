@@ -25,6 +25,11 @@ public class Gui extends JPanel implements KeyListener {
 	private static final String CARD_HIST = "hist";
 	private static final String CARD_COUNT = "count";
 	private static final String CARD_SHARE = "share";
+	
+	private static final String SCREEN_SHARE_HORIZONTAL = "share_screen_horizontal.png";
+	private static final String SCREEN_SHARE_VERTICAL = "share_screen_vertical.png";
+	private static final String SCREEN_IDLE_HORIZONTAL = "idle_screen_horizontal.png";
+	private static final String SCREEN_IDLE_VERTICAL = "idle_screen_horizontal.png";
 
 	private static int historySouvenirFileIndex = 0;
 	private static int historyBeerFileIndex = 0;
@@ -35,13 +40,20 @@ public class Gui extends JPanel implements KeyListener {
 	
 	private Thread countDownThread;
 	private Thread shareProgressThread;
+	
+	private boolean verticalOrientation = false;
 
-	public Gui() {
-
+	public Gui(boolean verticalOrientation) {
+		this.verticalOrientation = verticalOrientation;
 		setLayout(new BorderLayout());
 		setBackground(Color.white);
-		add(getDummyPanel(), BorderLayout.NORTH);
-		add(getMainPanel(), BorderLayout.CENTER);
+		if (verticalOrientation) {
+			add(getDummyPanel(), BorderLayout.NORTH);
+			add(getMainPanel(), BorderLayout.CENTER);
+		} else {
+			add(getDummyPanel(), BorderLayout.WEST);
+			add(getMainPanel(), BorderLayout.CENTER);
+		}
 	}
 
 	public File getHistoryDirectory() {
@@ -113,7 +125,6 @@ public class Gui extends JPanel implements KeyListener {
 					launchCountDown();
 				}
 				if (state == SelfpiState.WAIT_FOR_SHARE) {
-//				if (state == SelfpiState.IDLE) {
 					getShareProgressBar().setValue(100);
 					getCardLayout().show(Gui.this.getMainPanel(), CARD_SHARE);
 					launchShareProgress();
@@ -166,10 +177,8 @@ public class Gui extends JPanel implements KeyListener {
 	@Override
 	public void keyReleased(KeyEvent arg0) {
 	}
-
 	@Override
 	public void keyTyped(KeyEvent e) {
-
 	}
 
 	private void populateImages(){
@@ -208,20 +217,20 @@ public class Gui extends JPanel implements KeyListener {
 		return cardLayout;
 	}
 
-	private JPanel northDummyPanel;
+	private JPanel dummyPanel;
 	private JPanel getDummyPanel() {
-		if (northDummyPanel == null) {
-			northDummyPanel = new JPanel();
-			northDummyPanel.setPreferredSize(new Dimension(1024, 1000));
+		if (dummyPanel == null) {
+			dummyPanel = new JPanel();
+			dummyPanel.setPreferredSize(new Dimension(1000, 1000));
 		}
-		return northDummyPanel;
+		return dummyPanel;
 	}
 
 	private JPanel mainPanel;
 	private JPanel getMainPanel() {
 		if (mainPanel == null) {
 			mainPanel = new JPanel(getCardLayout());
-			mainPanel.setPreferredSize(new Dimension(1024, 256));
+//			mainPanel.setPreferredSize(new Dimension(1024, 256));
 			mainPanel.add(getTextLabel(), CARD_TEXT);
 			mainPanel.add(getHistoryPanel(), CARD_HIST);
 			mainPanel.add(getSharePanel(), CARD_SHARE);
@@ -233,10 +242,16 @@ public class Gui extends JPanel implements KeyListener {
 	private JLabel textLabel;
 	private JLabel getTextLabel() {
 		if(textLabel == null) {
-			textLabel = new JLabel(IDLE_TXT);
-			textLabel.setHorizontalTextPosition(SwingConstants.CENTER);
-			textLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 110));
-			textLabel.setHorizontalAlignment(JLabel.CENTER);
+			textLabel = new JLabel();
+			if (verticalOrientation) {
+				textLabel.setIcon(new ImageIcon(SelfPi.GUI_SCREENS_PATH+SCREEN_IDLE_VERTICAL));
+			} else {
+				textLabel.setIcon(new ImageIcon(SelfPi.GUI_SCREENS_PATH+SCREEN_IDLE_HORIZONTAL));
+			}
+//			textLabel = new JLabel(IDLE_TXT);
+//			textLabel.setHorizontalTextPosition(SwingConstants.CENTER);
+//			textLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 110));
+//			textLabel.setHorizontalAlignment(JLabel.CENTER);
 		}
 		return textLabel;
 	}
@@ -278,7 +293,11 @@ public class Gui extends JPanel implements KeyListener {
 	private JLabel getShareScreenLabel() {
 		if (shareScreenLabel == null) {
 			shareScreenLabel = new JLabel();
-			shareScreenLabel.setIcon(new ImageIcon(SelfPi.SHARESCREENATH));
+			if (verticalOrientation) {
+				shareScreenLabel.setIcon(new ImageIcon(SelfPi.GUI_SCREENS_PATH+SCREEN_SHARE_VERTICAL));
+			} else {
+				shareScreenLabel.setIcon(new ImageIcon(SelfPi.GUI_SCREENS_PATH+SCREEN_SHARE_HORIZONTAL));
+			}
 		}
 		return shareScreenLabel;
 	}

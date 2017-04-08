@@ -33,8 +33,15 @@ import com.pi4j.io.gpio.event.GpioPinDigitalStateChangeEvent;
 import com.pi4j.io.gpio.event.GpioPinListenerDigital;
 
 public class SelfPi implements KeyListener {
-	public static final String souvenirFilePath = "/home/pi/selfpi/souvenir/";
-	public static final String funnyImageFilefolder = "/home/pi/selfpi/funny/";
+	public static final String ROOTPATH = "/home/pi/selfpi";
+	public static final String CONFIG_FILE_PATH = ROOTPATH+"/setup/config.txt";
+	public static final String PICTURE_COUNTER_FILE_PATH = ROOTPATH+"/setup/counter.txt";
+	public static final String QUOTE_SENTENCES_FILE_PATH = ROOTPATH+"/setup/phrase.txt";
+	public static final String FACEBOOK_CONFIG_FILE_PATH = ROOTPATH+"/setup/facebook.txt";
+	public static final String GUI_SCREENS_PATH = ROOTPATH+"/setup/";
+	
+	public static final String souvenirFilePath = ROOTPATH+"/souvenir/";
+	public static final String funnyImageFilefolder = ROOTPATH+"/funny/";
 
 	public static boolean DEBUG = false; 
 	public static SelfpiState selfpiState = SelfpiState.IDLE;
@@ -56,11 +63,6 @@ public class SelfPi implements KeyListener {
 	
 	private Facebook facebook;
 	
-	public static final String FILECONFPATH = "/home/pi/selfpi/setup/config.txt";
-	public static final String COUNTERPATH = "/home/pi/selfpi/setup/counter.txt";
-	public static final String SENTENCESPATH = "/home/pi/selfpi/setup/phrase.txt";
-	public static final String FACEBOOKPATH = "/home/pi/selfpi/setup/facebook.txt";
-	public static final String SHARESCREENATH = "/home/pi/selfpi/setup/share_screen.png";
 	
 	private static final String WINNERKEY = "WINNER:";
 	private static final String FUNNYQUOTEKEY = "FUNNYQUOTE:";
@@ -68,6 +70,7 @@ public class SelfPi implements KeyListener {
 	private static final String PRINTERDOTSKEY = "PRINTERDOTS:";
 	private static final String USE_PRINTER_GRAPHIC_COMMAND_KEY = "USE_PRINTER_GRAPHIC_COMMAND:";
 	private static final String USE_FACEBOOK_KEY = "USE_FACEBOOK:";
+	private static final String GUI_VERT_ORIENTATION_KEY = "GUI_VERTICAL_ORIENTATION:";
 	
 	public static int winningTicketCounter = 0;
 
@@ -78,6 +81,7 @@ public class SelfPi implements KeyListener {
 	public static int printerdots = 576;
 	public static boolean usePrinterGraphicCommand = false; 
 	public static boolean useFacebook = false; 
+	public static boolean guiVerticalOrientation = false;
 	
 	public static int IMG_HEIGHT = 576;
 	public static int IMG_RATIO = 1;
@@ -87,30 +91,24 @@ public class SelfPi implements KeyListener {
 	
 	private Thread printHistoryThread;
 	
-	public SelfPi(Gui gui) {
-		this.gui = gui;
-
+	public SelfPi() {
 		if (!DEBUG) {
-			
 			//read config
 			String line;
-			try (BufferedReader br = new BufferedReader( new FileReader(FILECONFPATH) )){
+			try (BufferedReader br = new BufferedReader( new FileReader(CONFIG_FILE_PATH) )){
 				
 				line = br.readLine();
 				if (line != null && line.contains(WINNERKEY)) {
 					frequencyTicketWin = Integer.parseInt( br.readLine() );
 				}
-				
 				line = br.readLine();
 				if (line != null && line.contains(FUNNYQUOTEKEY)) {
 					printFunnyQuote = br.readLine().contains("true");
 				}
-				
 				line = br.readLine();
 				if (line != null && line.contains(PRINTERPRODUCTIDKEY)) {
 					printerProductID = Short.parseShort( br.readLine() );
 				}
-				
 				line = br.readLine();
 				if (line != null && line.contains(PRINTERDOTSKEY)) {
 					printerdots = Integer.parseInt( br.readLine() );
@@ -118,23 +116,32 @@ public class SelfPi implements KeyListener {
 					IMG_RATIO = 1;
 					IMG_WIDTH = (int) (IMG_HEIGHT * IMG_RATIO);
 				}
-				
 				line = br.readLine();
 				if (line != null && line.contains(USE_PRINTER_GRAPHIC_COMMAND_KEY)) {
 					usePrinterGraphicCommand = br.readLine().contains("true");
 				}
-				
 				line = br.readLine();
 				if (line != null && line.contains(USE_FACEBOOK_KEY)) {
 					useFacebook = br.readLine().contains("true");
 				}
+				line = br.readLine();
+				if (line != null && line.contains(GUI_VERT_ORIENTATION_KEY)) {
+					guiVerticalOrientation = br.readLine().contains("true");
+				}
 
 			} catch (IOException e) {
-				System.out.println("Error in config.txt, try with default values");
+				System.out.println("Error in config.txt, trying with default values");
 			};
 			
+			SwingUtilities.invokeLater(new Runnable() {
+				@Override
+				public void run() {
+					gui = new Gui(guiVerticalOrientation);
+				}
+			});
+			
 			//read global counter
-			try (BufferedReader br = new BufferedReader( new FileReader(COUNTERPATH))){
+			try (BufferedReader br = new BufferedReader( new FileReader(PICTURE_COUNTER_FILE_PATH))){
 				winningTicketCounter = Integer.parseInt( br.readLine() );
 			} catch (IOException e) {
 				System.out.println("Error in counter.txt");
@@ -185,7 +192,7 @@ public class SelfPi implements KeyListener {
 		}
 	}
 	
-	// keyboard 
+	// keyboard listener
 	@Override
 	public void keyPressed(KeyEvent e) {
 		if (e.getKeyCode() == KeyEvent.VK_ENTER){
@@ -214,6 +221,10 @@ public class SelfPi implements KeyListener {
 	@Override
 	public void keyTyped(KeyEvent e) {
 		
+	}
+	
+	public Gui getGui() {
+		return gui;
 	}
 
 	protected void stateMachineTransition(SelfPiEvent event){
@@ -397,21 +408,20 @@ public class SelfPi implements KeyListener {
 	public static void main(String[] args) {
 		final JFrame frame = new JFrame("SelfPi");
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		final Gui gui = new Gui();
+		final SelfPi selfpi = new SelfPi();
 
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
-				frame.add(gui);
+				frame.add(selfpi.getGui());
 				frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
 				frame.setUndecorated(true);
 				frame.setVisible(true);
 			}
 		});
 
-		SelfPi selfpi = new SelfPi(gui);
 		frame.addKeyListener(selfpi);
-		frame.addKeyListener(gui);
+		frame.addKeyListener(selfpi.getGui());
 
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 			public void run() {
@@ -553,7 +563,7 @@ public class SelfPi implements KeyListener {
 
 			// inc print counter
 			winningTicketCounter++;
-			Path file = Paths.get(COUNTERPATH);
+			Path file = Paths.get(PICTURE_COUNTER_FILE_PATH);
 			String line = Integer.toString(winningTicketCounter);
 			List<String> lines = Arrays.asList(line);
 			try {

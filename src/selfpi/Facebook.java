@@ -42,7 +42,7 @@ public class Facebook {
 	public Facebook() {
 		//read config
 		String line;
-		try (BufferedReader br = new BufferedReader( new FileReader(SelfPi.FACEBOOKPATH) )){
+		try (BufferedReader br = new BufferedReader( new FileReader(SelfPi.FACEBOOK_CONFIG_FILE_PATH) )){
 
 			line = br.readLine();
 			if (line != null && line.contains(FACETOKENKEY)) {

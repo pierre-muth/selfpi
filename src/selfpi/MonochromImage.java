@@ -40,7 +40,7 @@ public class MonochromImage {
 		
 		String line;
 		
-		try (BufferedReader br = new BufferedReader( new FileReader(SelfPi.SENTENCESPATH) )){
+		try (BufferedReader br = new BufferedReader( new FileReader(SelfPi.QUOTE_SENTENCES_FILE_PATH) )){
 			do {
 				
 				line = br.readLine();

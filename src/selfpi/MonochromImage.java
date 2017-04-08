@@ -139,8 +139,8 @@ public class MonochromImage {
 	}
 
 	public int[] getDitheredMonochrom(TicketMode mode) {
-		int HEIGHT = SelfPi.IMG_HEIGHT;
-		int WIDTH = SelfPi.IMG_WIDTH;
+		int HEIGHT = SelfPi.img_height;
+		int WIDTH = SelfPi.img_width;
 		
 		int[] pixels;
 		if (mode == TicketMode.WINNER || mode == TicketMode.FUNNY)
@@ -208,8 +208,8 @@ public class MonochromImage {
 	}
 
 	public byte[] getDitheredBits(TicketMode mode) {
-		int HEIGHT = SelfPi.IMG_HEIGHT;
-		int WIDTH = SelfPi.IMG_WIDTH;
+		int HEIGHT = SelfPi.img_height;
+		int WIDTH = SelfPi.img_width;
 
 		int[] pixDithered = getDitheredMonochrom(mode);
 
@@ -251,8 +251,8 @@ public class MonochromImage {
 
 
 		public ImageFileWriter() {
-			int HEIGHT = SelfPi.IMG_HEIGHT;
-			int WIDTH = SelfPi.IMG_WIDTH;
+			int HEIGHT = SelfPi.img_height;
+			int WIDTH = SelfPi.img_width;
 
 			bufImage = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_BYTE_GRAY);
 			wr = bufImage.getData().createCompatibleWritableRaster();
@@ -264,8 +264,8 @@ public class MonochromImage {
 
 		@Override
 		public void run() {
-			int HEIGHT = SelfPi.IMG_HEIGHT;
-			int WIDTH = SelfPi.IMG_WIDTH;
+			int HEIGHT = SelfPi.img_height;
+			int WIDTH = SelfPi.img_width;
 
 			// make image
 			//			wr.setPixels(0, 0, WIDTH, HEIGHT, getDitheredMonochrom());   //dithered image

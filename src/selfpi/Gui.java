@@ -17,6 +17,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JTextArea;
+import javax.swing.JTextPane;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
@@ -207,7 +208,6 @@ public class Gui extends JPanel implements KeyListener {
 
 			getHistoryImagesPanel().repaint();
 		}
-
 	}
 
 	private CardLayout cardLayout;
@@ -222,7 +222,7 @@ public class Gui extends JPanel implements KeyListener {
 	private JPanel getDummyPanel() {
 		if (dummyPanel == null) {
 			dummyPanel = new JPanel();
-			dummyPanel.setPreferredSize(new Dimension(1024, 1024));
+			dummyPanel.setPreferredSize(new Dimension(SelfPi.screenHeight, SelfPi.screenHeight));
 		}
 		return dummyPanel;
 	}
@@ -322,12 +322,17 @@ public class Gui extends JPanel implements KeyListener {
 		return historyPanel;
 	}
 
-	private JTextArea historyText;
-	private JTextArea getHistoryText() {
+	private JTextPane historyText;
+	private JTextPane getHistoryText() {
 		if (historyText == null){
-			historyText = new JTextArea("<-: Previous, ->: Next, p: Print, entrer: Quit");
+			historyText = new JTextPane();
+			if (verticalOrientation) {
+				historyText.setText("<-: Previous, ->: Next, p: Print, entrer: Quit");
+			} else {
+				historyText.setContentType("text/html");
+				historyText.setText("<html><center> &lt;-: Previous<br>-&gt;: Next<br>p: Print<br>entrer: Quit");
+			}
 			historyText.setFont(new Font(Font.MONOSPACED, Font.BOLD, 20));
-			historyText.setLineWrap(true);
 			historyText.setVisible(true);
 		}
 		return historyText;
@@ -347,8 +352,6 @@ public class Gui extends JPanel implements KeyListener {
 		
 		@Override
 		public void run() {
-			
-			
 			for (int counter = 9; counter >= 0; counter -= 1) {
 				final String count = "<html><center>"+Integer.toString(counter);
 				
@@ -368,8 +371,6 @@ public class Gui extends JPanel implements KeyListener {
 		
 		@Override
 		public void run() {
-			
-			
 			for (int counter = 100; counter >= 0; counter -= 1) {
 				final int value = counter;
 				

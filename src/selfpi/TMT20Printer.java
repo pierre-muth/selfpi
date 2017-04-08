@@ -128,8 +128,8 @@ public class TMT20Printer {
 		usbEndpoint = usbInterface.getUsbEndpoint((byte) 1);
 		System.out.println("Printer started");
 		
-		width = SelfPi.IMG_HEIGHT;  // We print 90 deg rotated
-		height = SelfPi.IMG_WIDTH;
+		width = SelfPi.img_height;  // We print 90 deg rotated
+		height = SelfPi.img_width;
 		
 		dataLength = ((width/8)*height) +11;
 		p1 = 0xFF & dataLength;

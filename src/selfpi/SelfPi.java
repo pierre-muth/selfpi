@@ -72,6 +72,7 @@ public class SelfPi implements KeyListener {
 	private static final String USE_PRINTER_GRAPHIC_COMMAND_KEY = "USE_PRINTER_GRAPHIC_COMMAND:";
 	private static final String USE_FACEBOOK_KEY = "USE_FACEBOOK:";
 	private static final String GUI_VERT_ORIENTATION_KEY = "GUI_VERTICAL_ORIENTATION:";
+	private static final String SCREEN_HEIGHT_KEY = "SCREEN_HEIGHT:";
 	
 	public static int winningTicketCounter = 0;
 
@@ -84,10 +85,11 @@ public class SelfPi implements KeyListener {
 	public static boolean useFacebook = false;
 	public static boolean useFunnyImages = false; 
 	public static boolean guiVerticalOrientation = false;
+	public static int screenHeight = 1024;
 	
-	public static int IMG_HEIGHT = 576;
-	public static int IMG_RATIO = 1;
-	public static int IMG_WIDTH = (int) (IMG_HEIGHT * IMG_RATIO);
+	public static int img_height = 576;
+	public static int img_ratio = 1;
+	public static int img_width = (int) (img_height * img_ratio);
 	
 	private Gui gui;
 	
@@ -118,9 +120,9 @@ public class SelfPi implements KeyListener {
 				line = br.readLine();
 				if (line != null && line.contains(PRINTERDOTSKEY)) {
 					printerdots = Integer.parseInt( br.readLine() );
-					IMG_HEIGHT = printerdots;
-					IMG_RATIO = 1;
-					IMG_WIDTH = (int) (IMG_HEIGHT * IMG_RATIO);
+					img_height = printerdots;
+					img_ratio = 1;
+					img_width = (int) (img_height * img_ratio);
 				}
 				line = br.readLine();
 				if (line != null && line.contains(USE_PRINTER_GRAPHIC_COMMAND_KEY)) {
@@ -133,6 +135,10 @@ public class SelfPi implements KeyListener {
 				line = br.readLine();
 				if (line != null && line.contains(GUI_VERT_ORIENTATION_KEY)) {
 					guiVerticalOrientation = br.readLine().contains("true");
+				}
+				line = br.readLine();
+				if (line != null && line.contains(SCREEN_HEIGHT_KEY)) {
+					screenHeight = Integer.parseInt( br.readLine() );
 				}
 
 			} catch (IOException e) {

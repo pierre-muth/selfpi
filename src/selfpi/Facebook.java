@@ -84,37 +84,16 @@ public class Facebook {
 		}
 	}
 
-	public void publishApicture(MonochromImage monoImage) {
-		Path filePath = Paths.get( monoImage.getLastImageFile().getAbsolutePath() );
-		long time = new Date().getTime();
-		byte[] data;
-		try {
-			data = Files.readAllBytes(filePath);
-			String message = photoMsg +", "+ monoImage.getCount();
-			FacebookType publishPhotoResponse = fbClient.publish(
-					albumID+"/photos", 
-					FacebookType.class,
-					BinaryAttachment.with(""+time+".jpg", data),
-					Parameter.with("message", message) 
-					);
-
-			System.out.println("Facebook published photo ID: " + publishPhotoResponse.getId());
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
-
 	public void publishApicture(File imageFile) throws IOException {
 		Path filePath = Paths.get(imageFile.getPath());
 		byte[] data = Files.readAllBytes(filePath);
-
+		String message = photoMsg +", "+ imageFile.getName();
 		FacebookType publishPhotoResponse = fbClient.publish(
-				"me/photos", 
+				albumID+"/photos", 
 				FacebookType.class,
-				BinaryAttachment.with("test.jpg", data),
-				Parameter.with("message", "Test "+new Date().getTime()) );
+				BinaryAttachment.with(imageFile.getName(), data),
+				Parameter.with("message", message ) );
 
-		System.out.println("Published photo ID: " + publishPhotoResponse.getId());
-
+		System.out.println("Facebook published photo ID: " + publishPhotoResponse.getId());
 	}
 }

@@ -38,7 +38,7 @@ public class Gui extends JPanel implements KeyListener {
 	private static File historyBeerDirectory = new File(SelfPi.funnyImageFilefolder);
 	private static File historySouvenirDirectory = new File(SelfPi.souvenirImageFilePath);
 	
-	private TicketMode historyMode = TicketMode.REPRINT;
+	private TicketMode historyMode = TicketMode.SOUVENIR;
 	
 	private Thread countDownThread;
 	private Thread shareProgressThread;
@@ -201,7 +201,7 @@ public class Gui extends JPanel implements KeyListener {
 			l.setVerticalTextPosition(JLabel.BOTTOM);
 			l.setHorizontalTextPosition(JLabel.CENTER);
 
-			l.setText(listOfFiles[i].getName().replace(".jpg", ""));
+			l.setText(listOfFiles[i].getName());
 			getHistoryImagesPanel().add(l);
 			Image resized  = new ImageIcon(listOfFiles[i].getPath()).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH); 
 			l.setIcon(new ImageIcon(resized));
@@ -245,9 +245,9 @@ public class Gui extends JPanel implements KeyListener {
 		if(textLabel == null) {
 			textLabel = new JLabel();
 			if (verticalOrientation) {
-				textLabel.setIcon(new ImageIcon(SelfPi.GUI_SCREENS_PATH+SCREEN_IDLE_VERTICAL));
+				textLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+SCREEN_IDLE_VERTICAL));
 			} else {
-				textLabel.setIcon(new ImageIcon(SelfPi.GUI_SCREENS_PATH+SCREEN_IDLE_HORIZONTAL));
+				textLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+SCREEN_IDLE_HORIZONTAL));
 			}
 //			textLabel = new JLabel(IDLE_TXT);
 //			textLabel.setHorizontalTextPosition(SwingConstants.CENTER);
@@ -304,9 +304,9 @@ public class Gui extends JPanel implements KeyListener {
 		if (shareScreenLabel == null) {
 			shareScreenLabel = new JLabel();
 			if (verticalOrientation) {
-				shareScreenLabel.setIcon(new ImageIcon(SelfPi.GUI_SCREENS_PATH+SCREEN_SHARE_VERTICAL));
+				shareScreenLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+SCREEN_SHARE_VERTICAL));
 			} else {
-				shareScreenLabel.setIcon(new ImageIcon(SelfPi.GUI_SCREENS_PATH+SCREEN_SHARE_HORIZONTAL));
+				shareScreenLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+SCREEN_SHARE_HORIZONTAL));
 			}
 		}
 		return shareScreenLabel;
@@ -352,7 +352,7 @@ public class Gui extends JPanel implements KeyListener {
 		
 		@Override
 		public void run() {
-			for (int counter = 9; counter >= 0; counter -= 1) {
+			for (int counter = SelfPi.countdownLength; counter >= 0; counter -= 1) {
 				final String count = "<html><center>"+Integer.toString(counter);
 				
 				SwingUtilities.invokeLater(new Runnable() {

@@ -1,11 +1,21 @@
 package selfpi;
 
+import java.awt.image.BufferedImage;
+import java.awt.image.WritableRaster;
 import java.io.BufferedInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import javax.imageio.IIOImage;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.FileImageOutputStream;
+
 public class PiCamera implements Runnable {
 	// defaults :
+	public static final float JPEG_QUALITY = 0.97f;	
 	public static int IMG_HEIGHT = 576;	
 	public static int IMG_RATIO = 1;
 	public static int IMG_WIDTH = (int) (IMG_HEIGHT * IMG_RATIO);	
@@ -21,9 +31,9 @@ public class PiCamera implements Runnable {
 	
 	private AtomicBoolean exit = new AtomicBoolean(false);
 	
-	public PiCamera() {
-		IMG_HEIGHT = SelfPi.img_height;
-		IMG_WIDTH = SelfPi.img_width;
+	public PiCamera(int width, int height) {
+		IMG_HEIGHT = height;
+		IMG_WIDTH = width;
 		pixBuf = new int[IMG_HEIGHT * IMG_WIDTH ];
 		pixList = new int[IMG_HEIGHT * IMG_WIDTH ];
 		RASPIVID = 
@@ -76,6 +86,34 @@ public class PiCamera implements Runnable {
 	
 	public int[] getAFrame() {
 		return pixList.clone();
+	}
+	
+	public void takeApictureToFile(File file) {
+		BufferedImage bufImage;
+		WritableRaster wr;
+		ImageWriteParam imageWriteParam;
+		IIOImage outputImage;
+		
+		ImageWriter imageWriter = ImageIO.getImageWritersByFormatName("jpg").next();
+		
+		bufImage = new BufferedImage(IMG_WIDTH, IMG_HEIGHT, BufferedImage.TYPE_BYTE_GRAY);
+		wr = bufImage.getData().createCompatibleWritableRaster();
+		imageWriteParam = imageWriter.getDefaultWriteParam();
+		imageWriteParam.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+		imageWriteParam.setCompressionQuality(JPEG_QUALITY);
+		
+		// make image
+		wr.setPixels(0, 0, IMG_WIDTH, IMG_HEIGHT, pixList.clone());	 // grayscale image		
+		bufImage.setData(wr);
+		outputImage = new IIOImage(bufImage, null, null);
+
+		//write jpeg image file
+		try {
+			imageWriter.setOutput(new FileImageOutputStream( file ));
+			imageWriter.write(null, outputImage, imageWriteParam);
+		} catch (IOException e) {
+			e.printStackTrace();
+		} 
 	}
 	
 	public void close() {

@@ -57,7 +57,7 @@ public class PrintImage {
 		0x1D, 'V', 'A', 0x10  
 	};
 
-	private static MonochromImage monoimg;
+	private static MonochromImageWin monoimg;
 	private static Camera picam;
 	private static OutputStream lp0;
 	
@@ -126,62 +126,62 @@ public class PrintImage {
 			System.out.println("Get a frame");
 			start = System.currentTimeMillis();
 			
-			monoimg = new MonochromImage();
+			monoimg = new MonochromImageWin();
 			monoimg.setPixels(picam.getAFrame());
 			
 			endCapture = System.currentTimeMillis();
 
 			// print test 
 //			testWithFile();
-			testWithUsb();
+//			testWithUsb();
 			picam.close();
 			printer.close();
 		}
 		
-		private void testWithUsb() {
-			byte[] img = monoimg.getDitheredMonochrom();
-			endDither = System.currentTimeMillis();
-			String test = "test with usb pipe\n";
-			printer.sendWithPipe(test.getBytes());
-			printer.sendWithPipe(getByteArray(DL_GRAPH));
-			printer.sendWithPipe(img);
-			endSending = System.currentTimeMillis();
-			printer.sendWithPipe(getByteArray(PRINT_DL));
-			String stats = "Capture: "+(endCapture-start)+", Dither: "+(endDither-endCapture)+", sending: "+(endSending-endDither)+"\n";
-			printer.sendWithPipe(stats.getBytes());
-			printer.sendWithPipe(getByteArray(CUT));
-		}
-		
-		private void testWithFile() {
-			try {
-				byte[] img = monoimg.getDitheredMonochrom();
-
-				endDither = System.currentTimeMillis();
-
-				for (int i = 0; i < TEST.length; i++) {
-					lp0.write( TEST[i] );
-				}		
-				lp0.write(0x0A);
-				
-				send(lp0, DL_GRAPH);
-				send(lp0, img);
-				endSending = System.currentTimeMillis();
-				send(lp0, PRINT_DL);
-
-				String stats = "Capture: "+(endCapture-start)+", Dither: "+(endDither-start)+", sending: "+(endSending-start);
-				
-				
-				lp0.write( stats.getBytes() );
-				lp0.write(0x0A);
-
-				send(lp0, CUT);
-
-				lp0.close();
-
-			} catch (IOException ioe) {
-				ioe.printStackTrace();
-			}
-		}
+//		private void testWithUsb() {
+//			byte[] img = monoimg.getDitheredMonochrom();
+//			endDither = System.currentTimeMillis();
+//			String test = "test with usb pipe\n";
+//			printer.sendWithPipe(test.getBytes());
+//			printer.sendWithPipe(getByteArray(DL_GRAPH));
+//			printer.sendWithPipe(img);
+//			endSending = System.currentTimeMillis();
+//			printer.sendWithPipe(getByteArray(PRINT_DL));
+//			String stats = "Capture: "+(endCapture-start)+", Dither: "+(endDither-endCapture)+", sending: "+(endSending-endDither)+"\n";
+//			printer.sendWithPipe(stats.getBytes());
+//			printer.sendWithPipe(getByteArray(CUT));
+//		}
+//		
+//		private void testWithFile() {
+//			try {
+//				byte[] img = monoimg.getDitheredMonochrom();
+//
+//				endDither = System.currentTimeMillis();
+//
+//				for (int i = 0; i < TEST.length; i++) {
+//					lp0.write( TEST[i] );
+//				}		
+//				lp0.write(0x0A);
+//				
+//				send(lp0, DL_GRAPH);
+//				send(lp0, img);
+//				endSending = System.currentTimeMillis();
+//				send(lp0, PRINT_DL);
+//
+//				String stats = "Capture: "+(endCapture-start)+", Dither: "+(endDither-start)+", sending: "+(endSending-start);
+//				
+//				
+//				lp0.write( stats.getBytes() );
+//				lp0.write(0x0A);
+//
+//				send(lp0, CUT);
+//
+//				lp0.close();
+//
+//			} catch (IOException ioe) {
+//				ioe.printStackTrace();
+//			}
+//		}
 	}
 
 }

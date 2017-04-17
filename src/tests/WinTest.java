@@ -78,13 +78,13 @@ public class WinTest {
 			
 			int[] pixels = new int[576*576];
 			pixels =  monoImageresized.getData().getPixel(0, 0, pixels);
-			MonochromImage monoimg = new MonochromImage();
+			MonochromImageWin monoimg = new MonochromImageWin();
 			monoimg.setPixels(pixels);
 			
-			byte[] img = monoimg.getDitheredMonochrom();
+//			byte[] img = monoimg.getDitheredMonochrom();
 			endDither = System.currentTimeMillis();
 			printer.sendWithPipe(getByteArray(DL_GRAPH));
-			printer.sendWithPipe(img);
+//			printer.sendWithPipe(img);
 			endSending = System.currentTimeMillis();
 			printer.sendWithPipe(getByteArray(PRINT_DL));
 			String stats = "Dither: "+(endDither-start)+", sending: "+(endSending-endDither)+"\n";

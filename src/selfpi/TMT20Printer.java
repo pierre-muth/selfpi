@@ -314,7 +314,11 @@ public class TMT20Printer {
 			sent = pipe.syncSubmit(getCommand_DL_TO_PRINT_BUF(width, height));
 			System.out.println(sent + " bytes sent to printer");
 
-			sent = pipe.syncSubmit(Dithering.getDitheredBitsInBytes(pixList, width, height));
+			if (SelfPi.useJarvisDithering) {
+				sent = pipe.syncSubmit(Dithering.getJarvisDitheredBitsInBytes(pixList, width, height));
+			} else {
+				sent = pipe.syncSubmit(Dithering.getFloydDitheredBitsInBytes(pixList, width, height));
+			}
 			System.out.println(sent + " bytes sent to printer");
 
 			sent = pipe.syncSubmit(getByteArray(PRINT_PRINT_BUF));

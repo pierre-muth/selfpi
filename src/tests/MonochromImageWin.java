@@ -27,6 +27,22 @@ public class MonochromImageWin {
 	private int[] pixList;
 	private Thread fileWriterThread;
 
+	private coef[] matrixJarvis = new coef[] {
+			 new coef( 1, 0, 7/48.0),
+			 new coef( 2, 0, 5/48.0),
+			 new coef(-2, 1, 3/48.0),
+			 new coef(-1, 1, 5/48.0),
+			 new coef( 0, 1, 7/48.0),
+			 new coef( 1, 1, 5/48.0),
+			 new coef( 2, 1, 3/48.0),
+			 new coef(-2, 2, 1/48.0),
+			 new coef(-1, 2, 3/48.0),
+			 new coef( 0, 2, 5/48.0),
+			 new coef( 1, 2, 3/48.0),
+			 new coef( 2, 2, 1/48.0) 	
+			
+	};
+	
 	public MonochromImageWin() {
 		imageWriter = ImageIO.getImageWritersByFormatName("jpg").next();
 	}
@@ -133,7 +149,68 @@ public class MonochromImageWin {
 		}
 	}
 	
-	public int[] getDitheredMonochrom() {
+	public int[] getJarvisDitheredMonochom() {
+		int pixelWithError, pixelDithered, error;
+		int[] pixDithered = new int[pixList.length];
+		int min = 255, max = 0;
+		double gain = 1;
+		
+		// search min-max
+		for (int i = 0; i < pixList.length; i++) {
+			if (pixList[i] > max) max = pixList[i];
+			if (pixList[i] < min) min = pixList[i];
+		}
+
+		//limiting
+		max = max<32 ? 32 : max;
+		min = min>224 ? 224 : min;
+
+		// calculate gain
+		gain = 255.0/(max-min);		
+
+		System.out.println("Gain: "+gain+", offset: "+min);
+
+		// normalise min-max to 0 - 255
+		for (int i = 0; i < pixList.length; i++) {
+			pixList[i] = (int) ( (pixList[i] - min)*gain) ;
+			if(pixList[i]>255) pixList[i] = 255;
+			if(pixList[i]<0) pixList[i] = 0;
+		}
+		
+		for (int i = 0; i < pixList.length; ++i) {
+            int o = pixList[i];
+            int n = o <= 0x80 ? 0 : 0xff;
+
+            int x = i % WIDTH;
+            int y = i / WIDTH;
+
+            pixDithered[i] = n;
+            
+            for (int j = 0; j != 12; ++j) {
+                int x0 = x + matrixJarvis[j].dx;
+                int y0 = y + matrixJarvis[j].dy;
+                if (x0 > WIDTH - 1 || x0 < 0 || y0 > HEIGHT - 1 || y0 < 0) {
+                    continue;
+                }
+                // the residual quantization error
+                // warning! have to overcast to signed int before calculation!
+                int d = (int) ((o - n) * matrixJarvis[j].coef);
+                // keep a value in the <min; max> interval
+                int a = pixList[x0 + WIDTH * y0] + d;
+                if (a > 0xff) {
+                    a = 0xff;
+                }
+                else if (a < 0) {
+                    a = 0;
+                }
+                pixList[x0 + WIDTH * y0] = a;
+            }
+        }
+
+		return pixDithered;
+	}
+	
+	public int[] getFloydDitheredMonochrom() {
 		int pixelWithError, pixelDithered, error;
 		boolean notLeft, notRight, notBottom;
 		int[] pixDithered = new int[pixList.length];
@@ -195,7 +272,7 @@ public class MonochromImageWin {
 	
 	public byte[] getDitheredBits() {
 		
-		int[] pixDithered = getDitheredMonochrom();
+		int[] pixDithered = getFloydDitheredMonochrom();
 		
 		//generate image with pixel bit in bytes
 		byte[] pixBytes = new byte[(HEIGHT/8) * WIDTH ];
@@ -246,8 +323,11 @@ public class MonochromImageWin {
 		@Override
 		public void run() {
 			// make image
-			wr.setPixels(0, 0, WIDTH, HEIGHT, getDitheredMonochrom());   //dithered image
+//			wr.setPixels(0, 0, WIDTH, HEIGHT, getFloydDitheredMonochrom());   //dithered image
 //			wr.setPixels(0, 0, WIDTH, HEIGHT, pixList);	 // grayscale image		
+
+			wr.setPixels(0, 0, WIDTH, HEIGHT, getJarvisDitheredMonochom());   //dithered image
+			
 			bufImage.setData(wr);
 			outputImage = new IIOImage(bufImage, null, null);
 
@@ -274,5 +354,17 @@ public class MonochromImageWin {
 		File imgFile = new File(filePath+"05.jpg");
 		mono.setFile(imgFile);
 		mono.writeToFile();
+	}
+	
+	private class coef {
+		public int dx;
+		public int dy;
+		public double coef;
+		
+		public coef(int dx, int dy, double coef) {
+			this.dx = dx;
+			this.dy = dy;
+			this.coef = coef;
+		}
 	}
 }

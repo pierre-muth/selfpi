@@ -40,7 +40,8 @@ public class PiCamera implements Runnable {
 				"/opt/vc/bin/raspividyuv"+	
 				" -w "+IMG_WIDTH+" -h "+IMG_HEIGHT+			//image dimension
 				" -p 0,0,"+SelfPi.screenHeight+","+SelfPi.screenHeight+  // output location and size
-				" -ex night -fps 0 -ev +0.1 -co 50 -t 0 -cfx 128:128 -o -";	//no timeout, monochom effect
+				" -ev "+SelfPi.cameraExposure+" -co "+SelfPi.cameraContast+
+				" -ex night -fps 0 -t 0 -cfx 128:128 -o -";	//no timeout, monochom effect
 	}
 	
 	@Override
@@ -51,7 +52,7 @@ public class PiCamera implements Runnable {
 			Process p = Runtime.getRuntime().exec(RASPIVID);
 			BufferedInputStream bis = new BufferedInputStream(p.getInputStream());
 
-			System.out.println("starting camera");
+			System.out.println("starting camera with "+RASPIVID);
 
 			int pixRead = bis.read();
 			int pixCount = 1; // we just read the first pixel yet

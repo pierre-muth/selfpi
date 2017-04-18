@@ -76,6 +76,9 @@ public class SelfPi implements KeyListener {
 	private static final String GUI_VERT_ORIENTATION_KEY = "GUI_VERTICAL_ORIENTATION:";
 	private static final String SCREEN_HEIGHT_KEY = "SCREEN_HEIGHT:";
 	private static final String COUNTDOWNLENGTHKEY = "COUNTDOWNLENGTH:";
+	private static final String DITHERINGKEY = "DITHERING_METHOD:";
+	private static final String CAMEXPOSUREKEY = "CAMERA_EXPOSURE:";
+	private static final String CAMERACONTRASTKEY = "CAMERA_CONTRAST:";
 	
 	public static int winningTicketCounter = 0;
 
@@ -93,6 +96,9 @@ public class SelfPi implements KeyListener {
 	public static File ticketSouvenirFoot = new File(SETUP_PATH+"footsouvenir.png");
 	public static File ticketWinnerFoot = new File(SETUP_PATH+"footwinner.png");
 	public static int countdownLength = 9;
+	public static boolean useJarvisDithering = false;
+	public static String cameraExposure = "+0.1";
+	public static String cameraContast = "50";
 	
 	private Gui gui;
 	private File lastSouvenirPictureFile;
@@ -146,6 +152,18 @@ public class SelfPi implements KeyListener {
 				if (line != null && line.contains(COUNTDOWNLENGTHKEY)) {
 					countdownLength = Integer.parseInt( br.readLine() );
 					countdownLength = countdownLength < 4 ? 4 : countdownLength;
+				}
+				line = br.readLine();
+				if (line != null && line.contains(DITHERINGKEY)) {
+					useJarvisDithering = br.readLine().contains("jarvis");
+				}
+				line = br.readLine();
+				if (line != null && line.contains(CAMEXPOSUREKEY)) {
+					cameraExposure = br.readLine();
+				}
+				line = br.readLine();
+				if (line != null && line.contains(CAMERACONTRASTKEY)) {
+					cameraContast = br.readLine();
 				}
 
 			} catch (IOException e) {

@@ -54,28 +54,38 @@ public class TMT20Printer {
 	/* Print the graphics data in the print buffer
 	 * Hex 1D 28 4C 02 00 30 fn
 	 */
-	private static final int[] PRINT_PRINT_BUF = {
+	private static final int[] PRINT_PRINTER_BUFFER = {
 		0x1D, 0x28, 0x4C, 0x02, 0x00, 0x30, 0x32
 	};
 	
 	// print NV graphics of key code 32 32   
-	private static final int[] PRINT_HEADER = {
+	private static final int[] PRINT_NV_HEADER = {
 		0x1D, 0x28, 0x4C, 0x06, 0x00, 0x30, 0x45, 32, 32, 1, 1
 	};
 	
 	// print NV graphics of key code 32 33
-	private static final int[] PRINT_FOOT_SOUVENIR = {
+	private static final int[] PRINT_NV_FOOT_SOUVENIR = {
 		0x1D, 0x28, 0x4C, 0x06, 0x00, 0x30, 0x45, 32, 33, 1, 1
 	};
 	
 	// print NV graphics of key code 32 34
-		private static final int[] PRINT_FOOT_WINNER = {
+		private static final int[] PRINT_NV_FOOT_WINNER = {
 			0x1D, 0x28, 0x4C, 0x06, 0x00, 0x30, 0x45, 32, 34, 1, 1
 		};
 	
 	// paper cut
 	private static final int[] CUT = {
 		0x1D, 'V', 'A', 0x10  
+	};
+	
+	// paper cut
+	private static final int[] ENTER_USER_SETTINGS = {
+		0x1D, 0x28, 0x45, 0x03, 0x00, 0x01, 0x49, 0x4E  
+	};
+		
+	// paper cut
+	private static final int[] END_USER_SETTINGS = {
+			0x1D, 0x28, 0x45, 0x04, 0x00, 0x02, 0x4F, 0x55, 0x54  
 	};
 	
 	// printing speed
@@ -114,7 +124,35 @@ public class TMT20Printer {
 		System.out.println("Printer started");
 		
 		width = SelfPi.printerdots;  
-		SET_SPEED = new int[] {0x1d, 0x28, 0x4b, 0x02, 0x00, 0x32, SelfPi.printerspeed};		
+		SET_SPEED = new int[] {0x1d, 0x28, 0x4b, 0x02, 0x00, 0x32, SelfPi.printerSpeed};		
+		
+		initPrinter(SelfPi.printDensity, SelfPi.printerSpeed);
+		System.out.println("Printer configured and resetting");
+		
+		try { Thread.sleep(5000); } catch (InterruptedException e) {}
+		
+		// Search for epson TM-T20
+		device = findUsb(UsbHostManager.getUsbServices().getRootUsbHub());
+		if (device == null) {
+			System.err.println("Epson TM-T20 not found :(");
+			System.exit(1);
+			return;
+		}
+
+		// Claim the interface
+		configuration = device.getActiveUsbConfiguration();
+		usbInterface = configuration.getUsbInterface((byte) 0);
+		usbInterface.claim(new UsbInterfacePolicy() {            
+			@Override
+			public boolean forceClaim(UsbInterface usbInterface) {
+				return true;
+			}
+		});
+
+		usbEndpoint = usbInterface.getUsbEndpoint((byte) 1);
+		System.out.println("Printer re-started");
+		
+		
 	}
 
 	public void close() {
@@ -124,6 +162,45 @@ public class TMT20Printer {
 		} catch (UsbNotActiveException	| UsbDisconnectedException | UsbException e) {
 			e.printStackTrace();
 		}
+	}
+	
+	private void initPrinter(int printDensity, int printerSpeed) {
+		int[] userSettings  = new int[] {
+				0x1D, 0x28, 0x45, 
+				0x07, 0x00,
+				0x05, 
+				0x05, (0x00FF & SelfPi.printDensity), ((0xFF00 & SelfPi.printDensity) >>> 8),
+				0x06, (0x00FF & SelfPi.printerSpeed), 0x00
+				};		
+		
+		if (usbPrinting != null && usbPrinting.isAlive()) {
+			System.out.println("Still sending to printer");
+			return;
+		}
+		
+		UsbPipe pipe = usbEndpoint.getUsbPipe();
+		try {
+			pipe.open();
+			
+			int sent = pipe.syncSubmit(getByteArray(ENTER_USER_SETTINGS));
+			System.out.println(sent + " bytes sent to printer");
+			sent = pipe.syncSubmit(getByteArray(userSettings));
+			System.out.println(sent + " bytes sent to printer");
+			sent = pipe.syncSubmit(getByteArray(END_USER_SETTINGS));
+			System.out.println(sent + " bytes sent to printer");
+			
+		} catch (UsbNotActiveException | UsbNotClaimedException
+				| UsbDisconnectedException | UsbException e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				pipe.close();
+			} catch (UsbNotActiveException | UsbNotOpenException
+					| UsbDisconnectedException | UsbException e) {
+				e.printStackTrace();
+			}
+		}
+		
 	}
 	
 	private static UsbDevice findUsb(UsbHub hub) {
@@ -151,7 +228,7 @@ public class TMT20Printer {
 		UsbPipe pipe = usbEndpoint.getUsbPipe();
 		try {
 			pipe.open();
-			int sent = pipe.syncSubmit(getByteArray(PRINT_HEADER));
+			int sent = pipe.syncSubmit(getByteArray(PRINT_NV_HEADER));
 			System.out.println(sent + " bytes sent to printer");
 		} catch (UsbNotActiveException | UsbNotClaimedException
 				| UsbDisconnectedException | UsbException e) {
@@ -308,20 +385,16 @@ public class TMT20Printer {
 			int sent;
 			pipe.open();
 			
-			sent = pipe.syncSubmit(getByteArray(SET_SPEED));
-			System.out.println(sent + " bytes sent to printer");
+//			sent = pipe.syncSubmit(getByteArray(SET_SPEED));
+//			System.out.println(sent + " bytes sent to printer");
 			
-			sent = pipe.syncSubmit(getCommand_DL_TO_PRINT_BUF(width, height));
+			sent = pipe.syncSubmit(getCommand_DL_TO_PRINTER_BUF(width, height));
 			System.out.println(sent + " bytes sent to printer");
 
-			if (SelfPi.useJarvisDithering) {
-				sent = pipe.syncSubmit(Dithering.getJarvisDitheredBitsInBytes(pixList, width, height));
-			} else {
-				sent = pipe.syncSubmit(Dithering.getFloydDitheredBitsInBytes(pixList, width, height));
-			}
+			sent = pipe.syncSubmit(Dithering.getDitheredBitsInBytes(SelfPi.ditheringMethod, pixList, width, height));
 			System.out.println(sent + " bytes sent to printer");
 
-			sent = pipe.syncSubmit(getByteArray(PRINT_PRINT_BUF));
+			sent = pipe.syncSubmit(getByteArray(PRINT_PRINTER_BUFFER));
 			System.out.println(sent + " bytes sent to printer");
 
 		} catch (UsbNotActiveException | UsbNotClaimedException
@@ -337,7 +410,7 @@ public class TMT20Printer {
 		}
 	}
 	
-	private byte[] getCommand_DL_TO_PRINT_BUF(int width, int height) {
+	private byte[] getCommand_DL_TO_PRINTER_BUF(int width, int height) {
 
 		int dataLength = ((width/8)*height) +10;
 		int p1 = 0xFF & dataLength;
@@ -436,8 +509,8 @@ public class TMT20Printer {
 //		}
 //	}
 	public static void main(String[] args) throws SecurityException, UsbException {
-		File imgFile = new File(SelfPi.souvenirImageFilePath+"01.jpg");
-		TMT20Printer p = new TMT20Printer((short) 0x0e15);
+		File imgFile = new File(SelfPi.souvenirImageFilefolder+"Lenna.png");
+		TMT20Printer p = new TMT20Printer((short) 3605);
 		p.print(imgFile);
 		p.cut();
 		p.close();

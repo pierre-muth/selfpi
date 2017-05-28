@@ -66,7 +66,7 @@ public class MonochromImage {
 	}
 
 	public void chooseRandomImage(){
-		File folder = new File(SelfPi.souvenirImageFilePath);
+		File folder = new File(SelfPi.souvenirImageFilefolder);
 		File[] listOfFiles = folder.listFiles();
 
 		int random = (int) (Math.random()*listOfFiles.length);
@@ -302,7 +302,7 @@ public class MonochromImage {
 			// use filename with second number.
 			String numberString = MonochromImage.this.numberFileName;
 			String path;
-			path = SelfPi.souvenirImageFilePath;
+			path = SelfPi.souvenirImageFilefolder;
 
 			// file to write
 			imageFile = new File(path+numberString+".jpg");

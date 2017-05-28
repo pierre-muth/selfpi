@@ -1,0 +1,42 @@
+gphoto2 --capture-tethered --keep-raw --keep
+[...]
+UNKNOWN PTP Property d115 changed
+UNKNOWN PTP Property d1d0 changed
+UNKNOWN PTP Property d1d1 changed
+UNKNOWN PTP Property d1af changed
+
+UNKNOWN PTP Property d102 changed
+UNKNOWN unhandled EOS event StorageInfoChanged (size 12)
+UNKNOWN PTP Property d11b changed
+UNKNOWN unhandled EOS event StorageInfoChanged (size 12)
+UNKNOWN PTP Property d102 changed
+FILEADDED IMG_4956.CR2 /store_00010001/DCIM/100EOS5D
+Saving file as IMG_4956.JPG
+UNKNOWN unhandled EOS event ObjectInfoChangedEx (size 60)
+
+UNKNOWN PTP Property d101 changed
+UNKNOWN PTP Property d11b changed
+UNKNOWN PTP Property d103 changed
+UNKNOWN PTP Property d11b changed
+UNKNOWN PTP Property d103 changed
+UNKNOWN PTP Property d101 changed
+UNKNOWN PTP Property d102 changed
+UNKNOWN PTP Property d1c0 changed
+UNKNOWN PTP Property d1d3 changed
+UNKNOWN PTP Property d1d3 changed
+UNKNOWN PTP Property d1c0 changed
+UNKNOWN PTP Property d1d3 changed
+UNKNOWN unhandled EOS event StorageInfoChanged (size 12)
+UNKNOWN PTP Property d11b changed
+UNKNOWN PTP Property d1c0 changed
+UNKNOWN PTP Property d1d3 changed
+UNKNOWN PTP Property d1d3 changed
+UNKNOWN PTP Property d1c0 changed
+UNKNOWN PTP Property d1d3 changed
+UNKNOWN unhandled EOS event StorageInfoChanged (size 12)
+FILEADDED IMG_4957.CR2 /store_00010001/DCIM/100EOS5D
+Saving file as IMG_4957.JPG
+UNKNOWN PTP Property d102 changed
+
+^C
+Cancelling...

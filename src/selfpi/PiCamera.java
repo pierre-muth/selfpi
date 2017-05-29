@@ -5,6 +5,7 @@ import java.awt.image.WritableRaster;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.util.Date;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.imageio.IIOImage;
@@ -28,12 +29,17 @@ public class PiCamera implements Runnable {
 
 	private int[] pixBuf = new int[IMG_HEIGHT * IMG_WIDTH ];
 	private int[] pixList = new int[IMG_HEIGHT * IMG_WIDTH ];
+	private long FRAME_LENGTH = (IMG_WIDTH * IMG_HEIGHT) + ((IMG_WIDTH * IMG_HEIGHT)/2);
 	
 	private AtomicBoolean exit = new AtomicBoolean(false);
+	private AtomicBoolean frame_ready = new AtomicBoolean(false);
+	private AtomicBoolean request_frame = new AtomicBoolean(false);
+	private AtomicBoolean recording_frame = new AtomicBoolean(false);
 	
 	public PiCamera(int width, int height) {
 		IMG_HEIGHT = height;
 		IMG_WIDTH = width;
+		FRAME_LENGTH = (IMG_WIDTH * IMG_HEIGHT) + ((IMG_WIDTH * IMG_HEIGHT)/2);
 		pixBuf = new int[IMG_HEIGHT * IMG_WIDTH ];
 		pixList = new int[IMG_HEIGHT * IMG_WIDTH ];
 		RASPIVID = 
@@ -59,19 +65,30 @@ public class PiCamera implements Runnable {
 
 			while (pixRead != -1 && !exit.get()) {
 				// after skipping chroma data, end of a frame
-				if (pixCount > (IMG_WIDTH * IMG_HEIGHT) + ((IMG_WIDTH * IMG_HEIGHT)/2) -1) {
+				if (pixCount >= FRAME_LENGTH) {
 					pixCount = 0;
+					if (request_frame.get()) { 
+						frame_ready.set(false);
+						recording_frame.set(true);
+					}
 				}
+				// read a pixel
 				pixRead = bis.read();
-				// first are only luminance pixel info
+				// first pixels are only luminance pixel info
 				if (pixCount < (IMG_WIDTH * IMG_HEIGHT)) {
-					pixBuf[pixCount] = pixRead;
+					if (recording_frame.get()) 
+						pixBuf[pixCount] = pixRead;
 				}
+				// inc pixel counter
 				pixCount++;
-				// a luminance frame arrived
+				// a luminance frame has arrived
 				if (pixCount == (IMG_WIDTH * IMG_HEIGHT)) {
-//					pixList = null;
-					pixList = pixBuf.clone();
+					if (recording_frame.get()) {
+						pixList = pixBuf.clone();
+						request_frame.set(false);
+						recording_frame.set(false);
+						frame_ready.set(true);
+					}
 				}
 			}
 
@@ -83,10 +100,6 @@ public class PiCamera implements Runnable {
 		} catch (IOException ieo) {
 			ieo.printStackTrace();
 		}
-	}
-	
-	public int[] getAFrame() {
-		return pixList.clone();
 	}
 	
 	public void takeApictureToFile(File file) {
@@ -103,6 +116,14 @@ public class PiCamera implements Runnable {
 		imageWriteParam.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
 		imageWriteParam.setCompressionQuality(JPEG_QUALITY);
 		
+		// ask for recording a frame and wait
+		request_frame.set(true);
+		while (!frame_ready.get()) {
+			try { Thread.sleep(20); } catch (InterruptedException e) {}
+			System.out.print(".");
+		}
+		System.out.print("\n");
+		
 		// make image
 		wr.setPixels(0, 0, IMG_WIDTH, IMG_HEIGHT, pixList.clone());	 // grayscale image		
 		bufImage.setData(wr);
@@ -115,6 +136,8 @@ public class PiCamera implements Runnable {
 		} catch (IOException e) {
 			e.printStackTrace();
 		} 
+		
+		frame_ready.set(false);
 	}
 	
 	public void close() {

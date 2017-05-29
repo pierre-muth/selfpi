@@ -6,13 +6,20 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.Graphics2D;
+import java.awt.GridLayout;
 import java.awt.Image;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 
+import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
+import javax.swing.JEditorPane;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
@@ -21,25 +28,19 @@ import javax.swing.JTextPane;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
-public class Gui extends JPanel implements KeyListener {
+public class Gui extends JPanel {
 	public static final String IDLE_TXT = "<html><center>Press<br>the button";
-	private static final String CARD_TEXT = "text";
+	private static final String CARD_IDLE = "idle";
 	private static final String CARD_HIST = "hist";
 	private static final String CARD_COUNT = "count";
 	private static final String CARD_SHARE = "share";
+	private static final String CARD_IMPORT = "import";
 	
 	private static final String SCREEN_SHARE_HORIZONTAL = "share_screen_horizontal.png";
 	private static final String SCREEN_SHARE_VERTICAL = "share_screen_vertical.png";
 	private static final String SCREEN_IDLE_HORIZONTAL = "idle_screen_horizontal.png";
-	private static final String SCREEN_IDLE_VERTICAL = "idle_screen_horizontal.png";
-
-	private static int historySouvenirFileIndex = 0;
-	private static int historyBeerFileIndex = 0;
-	private static File historyBeerDirectory = new File(SelfPi.funnyImageFilefolder);
-	private static File historySouvenirDirectory = new File(SelfPi.souvenirImageFilePath);
-	
-	private TicketMode historyMode = TicketMode.SOUVENIR;
-	
+	private static final String SCREEN_IDLE_VERTICAL = "idle_screen_vertical.png";
+		
 	private Thread countDownThread;
 	private Thread shareProgressThread;
 	
@@ -50,48 +51,12 @@ public class Gui extends JPanel implements KeyListener {
 		setLayout(new BorderLayout());
 		setBackground(Color.white);
 		if (verticalOrientation) {
-			add(getDummyPanel(), BorderLayout.NORTH);
-			add(getMainPanel(), BorderLayout.CENTER);
+			add(getDummyPanel(), BorderLayout.CENTER);
+			add(getMainPanel(), BorderLayout.SOUTH);
 		} else {
 			add(getDummyPanel(), BorderLayout.WEST);
 			add(getMainPanel(), BorderLayout.CENTER);
 		}
-	}
-
-	public File getHistoryDirectory() {
-		if (historyMode == TicketMode.REPRINT)
-			return historySouvenirDirectory;
-		else 
-			return historySouvenirDirectory;
-	}
-	public int getHistoryFileIndex(){
-		if (historyMode == TicketMode.REPRINT)
-			return historyBeerFileIndex;
-		else 
-			return historySouvenirFileIndex;
-	}
-
-	private void incrementHistoryFileIndex() {
-		if (historyMode == TicketMode.REPRINT) {
-			File[] listOfFiles = historyBeerDirectory.listFiles();
-			if (historyBeerFileIndex+6 < listOfFiles.length){
-				historyBeerFileIndex +=6;
-			}
-		} else {
-			File[] listOfFiles = historySouvenirDirectory.listFiles();
-			if (historySouvenirFileIndex+6 < listOfFiles.length){
-				historySouvenirFileIndex +=6;
-			}
-		}
-	}
-
-	private void decrementHistoryFileIndex() {
-		if (historyMode == TicketMode.REPRINT) {
-			if (historyBeerFileIndex-6 >=0 ) historyBeerFileIndex-=6;
-		} else {
-			if (historySouvenirFileIndex-6 >=0 ) historySouvenirFileIndex-=6;
-		}
-
 	}
 
 	public void launchCountDown() {
@@ -115,12 +80,13 @@ public class Gui extends JPanel implements KeyListener {
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
-				if (state == SelfpiState.HISTORIC){
+				if (state == SelfpiState.HISTORIC_SOUVENIR ||
+						state == SelfpiState.HISTORIC_WINNER ||
+						state == SelfpiState.HISTORIC_DSLR){
 					getCardLayout().show(Gui.this.getMainPanel(), CARD_HIST);
-					populateImages();
 				}
 				if (state == SelfpiState.IDLE) {
-					getCardLayout().show(Gui.this.getMainPanel(), CARD_TEXT);
+					getCardLayout().show(Gui.this.getMainPanel(), CARD_IDLE);
 				}
 				if (state == SelfpiState.TAKING_PICT) {
 					getCardLayout().show(Gui.this.getMainPanel(), CARD_COUNT);
@@ -131,83 +97,65 @@ public class Gui extends JPanel implements KeyListener {
 					getCardLayout().show(Gui.this.getMainPanel(), CARD_SHARE);
 					launchShareProgress();
 				}
+				if (state == SelfpiState.IMPORT_DSLR) {
+					getCardLayout().show(Gui.this.getMainPanel(), CARD_IMPORT);
+				}
 			}
 		});
 	}
 
-	@Override
-	public void keyPressed(KeyEvent e) {
+	public void displayHistoricImages(final File[] listOfFiles) throws InvocationTargetException, InterruptedException{
+		System.out.println("Display Historic Images of "+SelfPi.selfpiState);
+		if (listOfFiles == null || listOfFiles.length < 1) return;
 
-		if (e.getKeyCode() == KeyEvent.VK_LEFT){
-			decrementHistoryFileIndex();
-			SwingUtilities.invokeLater(new Runnable() {
+		for (int i = 0; i < listOfFiles.length; i++) {
+			final int index = i;
+			
+			SwingUtilities.invokeAndWait(new Runnable() {
 				@Override
 				public void run() {
-					populateImages();
+					JLabel l = getHistoryImages()[index];
+					l.setText(""+(index+1));
+					l.setIcon(null);
+					getHistoryImagesPanel().repaint(100);
 				}
 			});
-		}
-		if (e.getKeyCode() == KeyEvent.VK_RIGHT){
-			incrementHistoryFileIndex();
-			SwingUtilities.invokeLater(new Runnable() {
+			
+			if (listOfFiles[i] == null) continue;
+
+			System.out.println("displaying: "+listOfFiles[i].getPath());
+			
+			SwingUtilities.invokeAndWait(new Runnable() {
 				@Override
 				public void run() {
-					populateImages();
-				}
-			});
-		}
-		if (e.getKeyCode() == KeyEvent.VK_B) {
-			historyMode = TicketMode.REPRINT;
-			SwingUtilities.invokeLater(new Runnable() {
-				@Override
-				public void run() {
-					populateImages();
-				}
-			});
-		}
-		if (e.getKeyCode() == KeyEvent.VK_S) {
-			historyMode = TicketMode.SOUVENIR;
-			SwingUtilities.invokeLater(new Runnable() {
-				@Override
-				public void run() {
-					populateImages();
-				}
+					BufferedImage image = null;
+					try {
+						image = ImageIO.read(listOfFiles[index]);
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+					BufferedImage imageResized = new BufferedImage(160, (int)(160.0*((double)image.getHeight()/image.getWidth())), BufferedImage.TYPE_INT_RGB);
+					Graphics2D g = imageResized.createGraphics();
+					g.drawImage(image, 0, 0, 160, 160, null);
+					g.dispose();
+					JLabel l = getHistoryImages()[index];
+					l.setText(listOfFiles[index].getName());
+					l.setIcon(new ImageIcon(imageResized));
+					System.out.println("add 1 to hist panel");
+					getHistoryImagesPanel().repaint(100);
+				}		
 			});
 		}
 	}
 
-	@Override
-	public void keyReleased(KeyEvent arg0) {
-	}
-	@Override
-	public void keyTyped(KeyEvent e) {
-	}
-
-	private void populateImages(){
-		System.out.println("historyFileIndex of "+historyMode+": "+getHistoryFileIndex());
-
-		getHistoryImagesPanel().removeAll();
-		getHistoryImagesPanel().repaint();
-
-		File folder = getHistoryDirectory();
-		File[] listOfFiles = folder.listFiles();
-		Arrays.sort(listOfFiles);
-
-		for (int i = getHistoryFileIndex(); i < listOfFiles.length && i < getHistoryFileIndex()+6; i++) {
-			System.out.println(listOfFiles[i].getPath());
-
-			final JLabel l = new JLabel();
-			l.setForeground(Color.white);
-			l.setVerticalTextPosition(JLabel.BOTTOM);
-			l.setHorizontalTextPosition(JLabel.CENTER);
-
-			l.setText(listOfFiles[i].getName());
-			getHistoryImagesPanel().add(l);
-			Image resized  = new ImageIcon(listOfFiles[i].getPath()).getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH); 
-			l.setIcon(new ImageIcon(resized));
-
-			getHistoryImagesPanel().repaint();
-		}
+	public void setImportText(final String text) {
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				getImportTextPane().setText(text);
+			}
+		});
+		
 	}
 
 	private CardLayout cardLayout;
@@ -231,17 +179,18 @@ public class Gui extends JPanel implements KeyListener {
 	private JPanel getMainPanel() {
 		if (mainPanel == null) {
 			mainPanel = new JPanel(getCardLayout());
-//			mainPanel.setPreferredSize(new Dimension(1024, 256));
-			mainPanel.add(getTextLabel(), CARD_TEXT);
+			mainPanel.setPreferredSize(new Dimension(1024, 256));
+			mainPanel.add(getIdleLabel(), CARD_IDLE);
 			mainPanel.add(getHistoryPanel(), CARD_HIST);
 			mainPanel.add(getSharePanel(), CARD_SHARE);
 			mainPanel.add(getCountLabel(), CARD_COUNT);
+			mainPanel.add(getImportTextPane(), CARD_IMPORT);
 		}
 		return mainPanel;
 	}
 
 	private JLabel textLabel;
-	private JLabel getTextLabel() {
+	private JLabel getIdleLabel() {
 		if(textLabel == null) {
 			textLabel = new JLabel();
 			if (verticalOrientation) {
@@ -280,6 +229,17 @@ public class Gui extends JPanel implements KeyListener {
 			}
 		}
 		return sharePanel;
+	}
+	
+	private JEditorPane importTextPane;
+	private JEditorPane getImportTextPane() {
+		if (importTextPane == null) {
+			importTextPane = new JEditorPane();
+			importTextPane.setBackground(Color.BLACK);
+			importTextPane.setForeground(Color.white);
+			importTextPane.setFont(new Font(Font.DIALOG, Font.PLAIN, 9));
+		}
+		return importTextPane;
 	}
 
 	private JProgressBar shareProgressBar;
@@ -322,15 +282,14 @@ public class Gui extends JPanel implements KeyListener {
 		return historyPanel;
 	}
 
-	private JTextPane historyText;
-	private JTextPane getHistoryText() {
+	private JLabel historyText;
+	private JLabel getHistoryText() {
 		if (historyText == null){
-			historyText = new JTextPane();
+			historyText = new JLabel();
 			if (verticalOrientation) {
-				historyText.setText("<-: Previous, ->: Next, p: Print, entrer: Quit");
+				historyText.setText("<-: Previous, ->: Next, 1-6 : Print one, p: Print All, esc: Quit");
 			} else {
-				historyText.setContentType("text/html");
-				historyText.setText("<html><center> &lt;-: Previous<br>-&gt;: Next<br>p: Print<br>entrer: Quit");
+				historyText.setText("<html><center> &lt;-: Previous<br>-&gt;: Next<br>p: Print<br>esc: Quit");
 			}
 			historyText.setFont(new Font(Font.MONOSPACED, Font.BOLD, 20));
 			historyText.setVisible(true);
@@ -341,11 +300,30 @@ public class Gui extends JPanel implements KeyListener {
 	private JPanel historyImagesPanel;
 	private JPanel getHistoryImagesPanel() {
 		if (historyImagesPanel == null) {
-			FlowLayout fl = new FlowLayout(FlowLayout.LEFT);
-			historyImagesPanel = new JPanel(fl);
+//			FlowLayout fl = new FlowLayout(FlowLayout.LEFT);
+			GridLayout gl = new GridLayout(1, 6);
+			historyImagesPanel = new JPanel(gl);
 			historyImagesPanel.setBackground(Color.black);
 		}
 		return historyImagesPanel;
+	}
+	
+	private JLabel[] historyImages;
+	private JLabel[] getHistoryImages() {
+		if (historyImages == null) {
+			historyImages = new JLabel[6];
+			for (int i = 0; i < historyImages.length; i++) {
+				JLabel l = new JLabel();
+				l.setForeground(Color.white);
+				l.setVerticalTextPosition(JLabel.BOTTOM);
+				l.setHorizontalTextPosition(JLabel.CENTER);
+				l.setText(""+(i+1));
+				l.setIcon(null);
+				getHistoryImagesPanel().add(l);
+				historyImages[i] = l;
+			}
+		}
+		return historyImages;
 	}
 
 	private class CountDown implements Runnable {

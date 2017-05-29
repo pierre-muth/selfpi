@@ -18,13 +18,20 @@ import javax.imageio.stream.FileImageOutputStream;
 
 public class MonochromImageWin {
 	public static final float JPEG_QUALITY = 0.97f;	
-	public static final String filePath = "C:\\Temporary Files\\selfpi\\";
+	public static final String filePath = "C:\\temporary\\selfpi\\";
 	public static int TARGET_WIDTH = 576;
 	public static int HEIGHT = 576;
 	public static int WIDTH = 576;
 
 	private ImageWriter imageWriter;
 	private int[] pixList;
+	private int[] pixContrasted;
+	private int[] pixDithered;
+	
+	private int[] histogramOrigin = new int[256];
+	private int[] histogramNormalised = new int[256];
+	private int[] histogramGamma = new int[256];
+	
 	private Thread fileWriterThread;
 
 	private coef[] matrixJarvis = new coef[] {
@@ -150,8 +157,8 @@ public class MonochromImageWin {
 	}
 	
 	public int[] getJarvisDitheredMonochom() {
-		int pixelWithError, pixelDithered, error;
-		int[] pixDithered = new int[pixList.length];
+		pixDithered = new int[pixList.length];
+		pixContrasted = new int[pixList.length];
 		int min = 255, max = 0;
 		double gain = 1;
 		
@@ -177,8 +184,81 @@ public class MonochromImageWin {
 			if(pixList[i]<0) pixList[i] = 0;
 		}
 		
+		// local contrasting/sharpening
+		int zoneSize = 5;
 		for (int i = 0; i < pixList.length; ++i) {
-            int o = pixList[i];
+			int x = i % WIDTH;
+            int y = i / WIDTH;
+            int zoneAverage = 0;
+            int zoneCount = 0;
+            // average of the zone
+			for (int j = 0; j < (zoneSize*zoneSize); j++){
+				int xOff = ((j % zoneSize) - ((zoneSize-1)/2));
+				int yOff = ((j / zoneSize) - ((zoneSize-1)/2));
+				int x0 = x + xOff;
+				int y0 = y + yOff;
+				if (x0 > WIDTH - 1 || x0 < 0 || y0 > HEIGHT - 1 || y0 < 0) {
+                    continue;
+                }
+				zoneAverage += pixList[x0 + WIDTH * y0];
+				zoneCount++;
+			}
+			zoneAverage /= zoneCount;
+			pixContrasted[i] = pixList[i] + (pixList[i] - zoneAverage);
+//			System.out.println( ((double)i / pixList.length) * 100 );
+		}
+		
+//		int zoneSize = 11;
+//		for (int i = 0; i < pixList.length; ++i) {
+//			int x = i % WIDTH;
+//            int y = i / WIDTH;
+//            int localMin = 255;
+//            int localMax = 0;
+//            double localGain = 1;
+//            // min-max of the zone
+//			for (int j = 0; j < (zoneSize*zoneSize); j++){
+//				int xOff = ((j % zoneSize) - ((zoneSize-1)/2));
+//				int yOff = ((j / zoneSize) - ((zoneSize-1)/2));
+//				int x0 = x + xOff;
+//				int y0 = y + yOff;
+//				double dist = Math.sqrt(xOff*xOff + yOff*yOff);
+////				System.out.println("xOff: "+xOff+", yOff: "+yOff+", dist: "+dist);
+//				if (x0 > WIDTH - 1 || x0 < 0 || y0 > HEIGHT - 1 || y0 < 0) {
+//                    continue;
+//                }
+//				if (dist > ((zoneSize-1)/2)){
+//					continue;
+//				}
+//				
+//				int diffMax = pixList[x0 + WIDTH * y0] - localMax;
+//				int diffMin = pixList[x0 + WIDTH * y0] - localMin;
+//				if (diffMax > 0) localMax += diffMax;
+//				if (diffMin < 0) localMin += diffMin;
+//				//*(2/(dist*dist))
+//			}
+//			if ((localMax - localMin) < 32 ) {
+//				localMax += 16;
+//				localMin -= 16;
+//			}
+//			localMax = localMax<32 ? 32 : localMax;
+//			localMax = localMax>255 ? 255 : localMax;
+//			localMin = localMin>224 ? 224 : localMin;
+//			localMin = localMin<0 ? 0 : localMin;
+//			localGain = 255.0/(localMax-localMin);	
+//			pixContrasted[i] = (int) ( (pixList[i] - localMin)*localGain) ;
+//
+//			System.out.println( ((double)i / pixList.length) * 100 );
+//		}
+		
+		// clipping  0 - 255
+		for (int i = 0; i < pixContrasted.length; i++) {
+			if(pixContrasted[i]>255) pixContrasted[i] = 255;
+			if(pixContrasted[i]<0) pixContrasted[i] = 0;
+		}
+		
+		// Jarvis Dithering
+		for (int i = 0; i < pixContrasted.length; ++i) {
+            int o = pixContrasted[i];
             int n = o <= 0x80 ? 0 : 0xff;
 
             int x = i % WIDTH;
@@ -193,17 +273,17 @@ public class MonochromImageWin {
                     continue;
                 }
                 // the residual quantization error
-                // warning! have to overcast to signed int before calculation!
+                // warning! have to cast to signed int before calculation!
                 int d = (int) ((o - n) * matrixJarvis[j].coef);
                 // keep a value in the <min; max> interval
-                int a = pixList[x0 + WIDTH * y0] + d;
+                int a = pixContrasted[x0 + WIDTH * y0] + d;
                 if (a > 0xff) {
                     a = 0xff;
                 }
                 else if (a < 0) {
                     a = 0;
                 }
-                pixList[x0 + WIDTH * y0] = a;
+                pixContrasted[x0 + WIDTH * y0] = a;
             }
         }
 
@@ -221,6 +301,7 @@ public class MonochromImageWin {
 		for (int i = 0; i < pixList.length; i++) {
 			if (pixList[i] > max) max = pixList[i];
 			if (pixList[i] < min) min = pixList[i];
+			histogramOrigin[pixList[i]]++;
 		}
 
 		//limiting
@@ -232,11 +313,26 @@ public class MonochromImageWin {
 		
 		System.out.println("Gain: "+gain+", offset: "+min);
 		
-		// normalise min-max to 0 - 255
+		// normalise min-max to 0 - 255 & gamma
+		double in, out;
 		for (int i = 0; i < pixList.length; i++) {
-			pixList[i] = (int) ( (pixList[i] - min)*gain) ;
+			
+			in = (pixList[i] - min)*gain;
+			
+			histogramNormalised[(int) in]++;
+			
+			out = Math.pow( (in/255.0), 1/2.2) * 255.0;
+			
+			histogramGamma[(int) out]++;
+			
+			pixList[i] = (int) ( out ) ;
+			
 			if(pixList[i]>255) pixList[i] = 255;
 			if(pixList[i]<0) pixList[i] = 0;
+		}
+		
+		for (int i = 0; i < 256; i++) {
+			System.out.println(i +", "+ histogramOrigin[i] +", "+ histogramNormalised[i] +", "+ histogramGamma[i]);
 		}
 		
 		//dithering
@@ -270,28 +366,28 @@ public class MonochromImageWin {
 		return pixDithered;
 	}
 	
-	public byte[] getDitheredBits() {
-		
-		int[] pixDithered = getFloydDitheredMonochrom();
-		
-		//generate image with pixel bit in bytes
-		byte[] pixBytes = new byte[(HEIGHT/8) * WIDTH ];
-
-		int mask = 0x01;
-		int x, y;
-		for (int i = 0; i < pixBytes.length; i++) {
-			for (int j = 0; j < 8; j++) {
-				mask = 0b10000000 >>> j;
-				x = ((i%(HEIGHT/8)*8 ) +j)  ;
-				y = i / (HEIGHT/8);
-				if ( pixDithered[x+(y*WIDTH)] == 0 ) {
-					pixBytes[i] = (byte) (pixBytes[i] | mask);
-				}
-			}
-		}
-
-		return pixBytes;
-	}
+//	public byte[] getDitheredBits() {
+//		
+//		int[] pixDithered = getFloydDitheredMonochrom();
+//		
+//		//generate image with pixel bit in bytes
+//		byte[] pixBytes = new byte[(HEIGHT/8) * WIDTH ];
+//
+//		int mask = 0x01;
+//		int x, y;
+//		for (int i = 0; i < pixBytes.length; i++) {
+//			for (int j = 0; j < 8; j++) {
+//				mask = 0b10000000 >>> j;
+//				x = ((i%(HEIGHT/8)*8 ) +j)  ;
+//				y = i / (HEIGHT/8);
+//				if ( pixDithered[x+(y*WIDTH)] == 0 ) {
+//					pixBytes[i] = (byte) (pixBytes[i] | mask);
+//				}
+//			}
+//		}
+//
+//		return pixBytes;
+//	}
 
 	public void writeToFile() {
 		if (fileWriterThread == null || !fileWriterThread.isAlive()) {
@@ -323,10 +419,10 @@ public class MonochromImageWin {
 		@Override
 		public void run() {
 			// make image
-//			wr.setPixels(0, 0, WIDTH, HEIGHT, getFloydDitheredMonochrom());   //dithered image
+			wr.setPixels(0, 0, WIDTH, HEIGHT, getFloydDitheredMonochrom());   //dithered image
 //			wr.setPixels(0, 0, WIDTH, HEIGHT, pixList);	 // grayscale image		
-
-			wr.setPixels(0, 0, WIDTH, HEIGHT, getJarvisDitheredMonochom());   //dithered image
+//			wr.setPixels(0, 0, WIDTH, HEIGHT, getJarvisDitheredMonochom());   //dithered image
+//			wr.setPixels(0, 0, WIDTH, HEIGHT, pixContrasted);	 // grayscale image		
 			
 			bufImage.setData(wr);
 			outputImage = new IIOImage(bufImage, null, null);
@@ -351,7 +447,7 @@ public class MonochromImageWin {
 	
 	public static void main(String[] args) {
 		MonochromImageWin mono = new MonochromImageWin();
-		File imgFile = new File(filePath+"05.jpg");
+		File imgFile = new File(filePath+"source001.png");
 		mono.setFile(imgFile);
 		mono.writeToFile();
 	}

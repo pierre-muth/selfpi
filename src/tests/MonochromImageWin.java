@@ -29,6 +29,7 @@ public class MonochromImageWin {
 	private int[] pixDithered;
 	
 	private int[] histogramOrigin = new int[256];
+	private int[] histogramCumulated = new int[256];
 	private int[] histogramNormalised = new int[256];
 	private int[] histogramGamma = new int[256];
 	
@@ -294,45 +295,34 @@ public class MonochromImageWin {
 		int pixelWithError, pixelDithered, error;
 		boolean notLeft, notRight, notBottom;
 		int[] pixDithered = new int[pixList.length];
-		int min = 255, max = 0;
-		double gain = 1;
 
-		// search min-max
+		// generate histogram origin
 		for (int i = 0; i < pixList.length; i++) {
-			if (pixList[i] > max) max = pixList[i];
-			if (pixList[i] < min) min = pixList[i];
 			histogramOrigin[pixList[i]]++;
 		}
 
-		//limiting
-		max = max<32 ? 32 : max;
-		min = min>224 ? 224 : min;
+		// cumulative histogram
+		histogramCumulated[0] = histogramOrigin[0]; 
+		for (int i = 1; i < 256; ++i) {
+			histogramCumulated[i] = histogramOrigin[i] + histogramCumulated[i - 1];
+        }
 		
-		// calculate gain
-		gain = 255.0/(max-min);		
-		
-		System.out.println("Gain: "+gain+", offset: "+min);
-		
-		// normalise min-max to 0 - 255 & gamma
+		// histogram normalise & gamma
 		double in, out;
+		double gamma = 1.4;
 		for (int i = 0; i < pixList.length; i++) {
 			
-			in = (pixList[i] - min)*gain;
-			
+			in = 255 * histogramCumulated[pixList[i]] / pixList.length;
 			histogramNormalised[(int) in]++;
-			
-			out = Math.pow( (in/255.0), 1/2.2) * 255.0;
-			
+			out = Math.pow( (in/255.0), 1/gamma) * 255.0;
 			histogramGamma[(int) out]++;
-			
 			pixList[i] = (int) ( out ) ;
-			
 			if(pixList[i]>255) pixList[i] = 255;
 			if(pixList[i]<0) pixList[i] = 0;
 		}
 		
 		for (int i = 0; i < 256; i++) {
-			System.out.println(i +", "+ histogramOrigin[i] +", "+ histogramNormalised[i] +", "+ histogramGamma[i]);
+			System.out.println(i +", "+ histogramOrigin[i] +", "+ histogramCumulated[i] +", "+ histogramNormalised[i] +", "+ histogramGamma[i]);
 		}
 		
 		//dithering

@@ -314,6 +314,7 @@ public class MonochromImageWin {
 			
 			in = 255 * histogramCumulated[pixList[i]] / pixList.length;
 			histogramNormalised[(int) in]++;
+			
 			out = Math.pow( (in/255.0), 1/gamma) * 255.0;
 			histogramGamma[(int) out]++;
 			pixList[i] = (int) ( out ) ;

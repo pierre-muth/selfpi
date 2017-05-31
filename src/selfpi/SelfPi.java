@@ -89,6 +89,7 @@ public class SelfPi implements KeyListener {
 
 	private static final String WINNERKEY = "WINNER:";
 	private static final String FUNNYQUOTEKEY = "FUNNYQUOTE:";
+	private static final String WINNERIMAGESKEY = "WINNERIMAGES:";
 	private static final String FUNNYIMAGESKEY = "FUNNYIMAGES:";
 	private static final String PRINTERPRODUCTIDKEY = "PRINTER_PRODUCT_ID:";
 	private static final String PRINTERDOTSKEY = "PRINTERDOTS:";
@@ -101,7 +102,9 @@ public class SelfPi implements KeyListener {
 	private static final String DITHERINGKEY = "DITHERING_METHOD:";
 	private static final String CAMEXPOSUREKEY = "CAMERA_EXPOSURE:";
 	private static final String CAMERACONTRASTKEY = "CAMERA_CONTRAST:";
-
+	private static final String NORMALISEHISTOGRAMKEY = "NORMALISE_HISTOGRAM:";
+	private static final String GAMMACORRECTIONKEY = "GAMMA_CORRECTION:";
+	
 	public static int winningTicketCounter = 0;
 
 	// default values
@@ -112,7 +115,8 @@ public class SelfPi implements KeyListener {
 	public static int printerSpeed = 2;
 	public static int printDensity = 65533;
 	public static boolean useFacebook = false;
-	public static boolean useFunnyImages = false; 
+	public static boolean useFunnyImages = false;
+	public static boolean useWinnerImages = false; 
 	public static boolean guiVerticalOrientation = false;
 	public static int screenHeight = 1024;
 	public static File ticketHeader = new File(SETUP_PATH+"header.png");
@@ -122,7 +126,9 @@ public class SelfPi implements KeyListener {
 	public static int ditheringMethod = 2;
 	public static String cameraExposure = "+0.1";
 	public static String cameraContast = "50";
-
+	public static boolean normalyseHistogram = true;
+	public static double gamma = 1.0; 
+	
 	private Gui gui;
 	private File lastSouvenirPictureFile;
 	private ArrayList<String> sentences;
@@ -142,6 +148,10 @@ public class SelfPi implements KeyListener {
 				line = br.readLine();
 				if (line != null && line.contains(FUNNYQUOTEKEY)) {
 					printFunnyQuote = br.readLine().contains("true");
+				}
+				line = br.readLine();
+				if (line != null && line.contains(WINNERIMAGESKEY)) {
+					useWinnerImages = br.readLine().contains("true");
 				}
 				line = br.readLine();
 				if (line != null && line.contains(FUNNYIMAGESKEY)) {
@@ -192,6 +202,14 @@ public class SelfPi implements KeyListener {
 				line = br.readLine();
 				if (line != null && line.contains(CAMERACONTRASTKEY)) {
 					cameraContast = br.readLine();
+				}
+				line = br.readLine();
+				if (line != null && line.contains(NORMALISEHISTOGRAMKEY)) {
+					normalyseHistogram = br.readLine().contains("true");
+				}
+				line = br.readLine();
+				if (line != null && line.contains(GAMMACORRECTIONKEY)) {
+					gamma = Double.parseDouble( br.readLine() );
 				}
 
 			} catch (IOException e) {
@@ -973,10 +991,10 @@ public class SelfPi implements KeyListener {
 		public void run() {
 
 			if (winningTicketCounter%frequencyTicketWin == 0){
-				if ( (winningTicketCounter/frequencyTicketWin) %2 == 0 && SelfPi.useFunnyImages) {
-					printer.print(chooseFunnyImage());
-				} else {
+				if ( (winningTicketCounter/frequencyTicketWin) %2 == 0 && SelfPi.useWinnerImages) {
 					printer.print(chooseRandomImage());
+				} else if (useFunnyImages) {
+					printer.print(chooseFunnyImage());
 				}
 			} else {
 				printer.print(lastSouvenirPictureFile);

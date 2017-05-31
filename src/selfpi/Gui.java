@@ -4,18 +4,14 @@ import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.GridLayout;
-import java.awt.Image;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
-import java.util.Arrays;
 
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
@@ -23,8 +19,6 @@ import javax.swing.JEditorPane;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
-import javax.swing.JTextArea;
-import javax.swing.JTextPane;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
@@ -117,7 +111,7 @@ public class Gui extends JPanel {
 					JLabel l = getHistoryImages()[index];
 					l.setText(""+(index+1));
 					l.setIcon(null);
-					getHistoryImagesPanel().repaint(100);
+					getHistoryImagesPanel().repaint();
 				}
 			});
 			
@@ -134,15 +128,20 @@ public class Gui extends JPanel {
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
-					BufferedImage imageResized = new BufferedImage(160, (int)(160.0*((double)image.getHeight()/image.getWidth())), BufferedImage.TYPE_INT_RGB);
+					int width = 160;
+					int height = (int)(width*((double)image.getHeight()/image.getWidth()));
+					BufferedImage imageResized = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
 					Graphics2D g = imageResized.createGraphics();
-					g.drawImage(image, 0, 0, 160, 160, null);
+//					g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+//					g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+					g.drawImage(image, 0, 0, width, height, null);
 					g.dispose();
 					JLabel l = getHistoryImages()[index];
-					l.setText(listOfFiles[index].getName());
+					l.setText((index+1)+": "+listOfFiles[index].getName());
+//					Image imageResized  = new ImageIcon(listOfFiles[index].getPath()).getImage().getScaledInstance(160, height, Image.SCALE_SMOOTH); 
 					l.setIcon(new ImageIcon(imageResized));
 					System.out.println("add 1 to hist panel");
-					getHistoryImagesPanel().repaint(100);
+					getHistoryImagesPanel().repaint();
 				}		
 			});
 		}

@@ -391,7 +391,9 @@ public class TMT20Printer {
 			sent = pipe.syncSubmit(getCommand_DL_TO_PRINTER_BUF(width, height));
 			System.out.println(sent + " bytes sent to printer");
 
-			sent = pipe.syncSubmit(Dithering.getDitheredBitsInBytes(SelfPi.ditheringMethod, pixList, width, height));
+			sent = pipe.syncSubmit(Dithering.getDitheredMonochrom(SelfPi.ditheringMethod,
+					pixList, width, height, 
+					SelfPi.normalyseHistogram, SelfPi.gamma));
 			System.out.println(sent + " bytes sent to printer");
 
 			sent = pipe.syncSubmit(getByteArray(PRINT_PRINTER_BUFFER));

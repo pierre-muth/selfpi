@@ -54,26 +54,72 @@ public class Dithering {
 			
 	};
 	
-	public static byte[] getDitheredBitsInBytes(int method, int[] pixList, int imgWidth, int imgHeight) {
+	public static byte[] getDitheredMonochrom(int method, int[] pixList, int imgWidth, int imgHeight, boolean normalise, double gamma) {
+		if (normalise) pixList = normaliseHistogram(pixList);
+		else pixList = expandHistogram(pixList);
+		pixList = gammaCorrection(pixList, gamma);
 		
 		switch (method) {
 		case FLOYD:
-			return getFloydDitheredBitsInBytes(pixList, imgWidth, imgHeight);
+			pixList = getFloydDitheredInts(pixList, imgWidth, imgHeight);
+			return getDitheredBitsInBytes(pixList, imgWidth, imgHeight);
 		case JARVIS:
-			return getJarvisDitheredBitsInBytes(pixList, imgWidth, imgHeight);
+			pixList = getJarvisDitheredInts(pixList, imgWidth, imgHeight);
+			return getDitheredBitsInBytes(pixList, imgWidth, imgHeight);
 		case STUCKI:
-			return getStuckiDitheredBitsInBytes(pixList, imgWidth, imgHeight);
+			pixList = getStuckiDitheredInts(pixList, imgWidth, imgHeight);
+			return getDitheredBitsInBytes(pixList, imgWidth, imgHeight);
 
 		default:
-			return getFloydDitheredBitsInBytes(pixList, imgWidth, imgHeight);
+			pixList = getFloydDitheredInts(pixList, imgWidth, imgHeight);
+			return getDitheredBitsInBytes(pixList, imgWidth, imgHeight);
 		}
 		
 	}
 	
-	public static int[] getFloydDitheredInts(int[] pixList, int imgWidth, int imgHeight) {
-		int pixelWithError, pixelDithered, error;
-		boolean notLeft, notRight, notBottom;
-		int[] pixDithered = new int[pixList.length];
+	public static byte[] getDitheredBitsInBytes(int[] pixList, int imgWidth, int imgHeight) {
+		
+		//generate image with pixel bit in bytes
+		byte[] pixBytes = new byte[(imgWidth/8) * imgHeight ];
+
+		int mask = 0x01;
+		int x, y;
+		for (int i = 0; i < pixBytes.length; i++) {
+			for (int j = 0; j < 8; j++) {
+				mask = 0b10000000 >>> j;
+				x = ( i%(imgWidth/8)*8 ) +j  ;
+				y = i / (imgWidth/8);
+				if ( pixList[x+(y*imgWidth)] == 0 ) {
+					pixBytes[i] = (byte) (pixBytes[i] | mask);
+				}
+			}
+		}
+
+		return pixBytes;
+	}
+	
+	public static int[] normaliseHistogram(int[] pixList) {
+		int[] histogram = new int[256];
+		
+		// generate histogram origin
+		for (int i = 0; i < pixList.length; i++) {
+			histogram[pixList[i]]++;
+		}
+		
+		// cumulative histogram
+		for (int i = 1; i < 256; ++i) {
+			histogram[i] += histogram[i - 1];
+		}
+		
+		// histogram normalisation
+		for (int i = 0; i < pixList.length; i++) {
+			pixList[i] = 255 * histogram[pixList[i]] / pixList.length;
+		}
+		
+		return pixList;
+	}
+	
+	public static int[] expandHistogram(int[] pixList) {
 		int min = 255, max = 0;
 		double gain = 1;
 
@@ -90,14 +136,29 @@ public class Dithering {
 		// calculate gain
 		gain = 255.0/(max-min);		
 		
-		System.out.println("Gain: "+gain+", offset: "+min);
-		
 		// normalise min-max to 0 - 255
 		for (int i = 0; i < pixList.length; i++) {
 			pixList[i] = (int) ( (pixList[i] - min)*gain) ;
 			if(pixList[i]>255) pixList[i] = 255;
 			if(pixList[i]<0) pixList[i] = 0;
 		}
+		
+		return pixList;
+	}
+	
+	public static int[] gammaCorrection (int[] pixList, double gamma) {
+
+		for (int i = 0; i < pixList.length; i++) {
+			pixList[i] = (int) (Math.pow( (pixList[i]/255.0), 1/gamma) * 255.0);
+		}
+		
+		return pixList;
+	}
+	
+	public static int[] getFloydDitheredInts(int[] pixList, int imgWidth, int imgHeight) {
+		int pixelWithError, pixelDithered, error;
+		boolean notLeft, notRight, notBottom;
+		int[] pixDithered = new int[pixList.length];
 		
 		//dithering
 		for (int pixCount = 0; pixCount < pixList.length; pixCount++) {
@@ -130,59 +191,12 @@ public class Dithering {
 		return pixDithered;
 	}
 	
-	public static byte[] getFloydDitheredBitsInBytes(int[] pixList, int imgWidth, int imgHeight) {
-		
-		int[] pixDithered = getFloydDitheredInts(pixList, imgWidth, imgHeight);
-		
-		//generate image with pixel bit in bytes
-		byte[] pixBytes = new byte[(imgWidth/8) * imgHeight ];
-
-		int mask = 0x01;
-		int x, y;
-		for (int i = 0; i < pixBytes.length; i++) {
-			for (int j = 0; j < 8; j++) {
-				mask = 0b10000000 >>> j;
-				x = ( i%(imgWidth/8)*8 ) +j  ;
-				y = i / (imgWidth/8);
-				if ( pixDithered[x+(y*imgWidth)] == 0 ) {
-					pixBytes[i] = (byte) (pixBytes[i] | mask);
-				}
-			}
-		}
-
-		return pixBytes;
-	}
-	
 	/**
 	 *	borrowed from petrkutalek
 	 *	https://github.com/petrkutalek/png2pos/blob/master/png2pos.c 
 	 */
-	public static int[] getJarvisDitheredMonochom(int[] pixList, int imgWidth, int imgHeight) {
+	public static int[] getJarvisDitheredInts(int[] pixList, int imgWidth, int imgHeight) {
 		int[] pixDithered = new int[pixList.length];
-		int min = 255, max = 0;
-		double gain = 1;
-		
-		// search min-max
-		for (int i = 0; i < pixList.length; i++) {
-			if (pixList[i] > max) max = pixList[i];
-			if (pixList[i] < min) min = pixList[i];
-		}
-
-		//limiting
-		max = max<32 ? 32 : max;
-		min = min>224 ? 224 : min;
-
-		// calculate gain
-		gain = 255.0/(max-min);		
-
-		System.out.println("Gain: "+gain+", offset: "+min);
-
-		// normalise min-max to 0 - 255
-		for (int i = 0; i < pixList.length; i++) {
-			pixList[i] = (int) ( (pixList[i] - min)*gain) ;
-			if(pixList[i]>255) pixList[i] = 255;
-			if(pixList[i]<0) pixList[i] = 0;
-		}
 		
 		for (int i = 0; i < pixList.length; ++i) {
             int o = pixList[i];
@@ -217,55 +231,8 @@ public class Dithering {
 		return pixDithered;
 	}
 	
-	public static byte[] getJarvisDitheredBitsInBytes(int[] pixList, int imgWidth, int imgHeight) {
-
-		int[] pixDithered = getJarvisDitheredMonochom(pixList, imgWidth, imgHeight);
-
-		//generate image with pixel bit in bytes
-		byte[] pixBytes = new byte[(imgWidth/8) * imgHeight ];
-
-		int mask = 0x01;
-		int x, y;
-		for (int i = 0; i < pixBytes.length; i++) {
-			for (int j = 0; j < 8; j++) {
-				mask = 0b10000000 >>> j;
-				x = ( i%(imgWidth/8)*8 ) +j  ;
-				y = i / (imgWidth/8);
-				if ( pixDithered[x+(y*imgWidth)] == 0 ) {
-					pixBytes[i] = (byte) (pixBytes[i] | mask);
-				}
-			}
-		}
-
-		return pixBytes;
-	}
-
-	public static int[] getStuckiDitheredMonochom(int[] pixList, int imgWidth, int imgHeight) {
+	public static int[] getStuckiDitheredInts(int[] pixList, int imgWidth, int imgHeight) {
 		int[] pixDithered = new int[pixList.length];
-		int min = 255, max = 0;
-		double gain = 1;
-		
-		// search min-max
-		for (int i = 0; i < pixList.length; i++) {
-			if (pixList[i] > max) max = pixList[i];
-			if (pixList[i] < min) min = pixList[i];
-		}
-
-		//limiting
-		max = max<32 ? 32 : max;
-		min = min>224 ? 224 : min;
-
-		// calculate gain
-		gain = 255.0/(max-min);		
-
-		System.out.println("Gain: "+gain+", offset: "+min);
-
-		// normalise min-max to 0 - 255
-		for (int i = 0; i < pixList.length; i++) {
-			pixList[i] = (int) ( (pixList[i] - min)*gain) ;
-			if(pixList[i]>255) pixList[i] = 255;
-			if(pixList[i]<0) pixList[i] = 0;
-		}
 		
 		for (int i = 0; i < pixList.length; ++i) {
             int o = pixList[i];
@@ -300,29 +267,6 @@ public class Dithering {
 		return pixDithered;
 	}
 	
-	public static byte[] getStuckiDitheredBitsInBytes(int[] pixList, int imgWidth, int imgHeight) {
-
-		int[] pixDithered = getStuckiDitheredMonochom(pixList, imgWidth, imgHeight);
-
-		//generate image with pixel bit in bytes
-		byte[] pixBytes = new byte[(imgWidth/8) * imgHeight ];
-
-		int mask = 0x01;
-		int x, y;
-		for (int i = 0; i < pixBytes.length; i++) {
-			for (int j = 0; j < 8; j++) {
-				mask = 0b10000000 >>> j;
-				x = ( i%(imgWidth/8)*8 ) +j  ;
-				y = i / (imgWidth/8);
-				if ( pixDithered[x+(y*imgWidth)] == 0 ) {
-					pixBytes[i] = (byte) (pixBytes[i] | mask);
-				}
-			}
-		}
-
-		return pixBytes;
-	}
-
 	private static class coef {
 		public int dx;
 		public int dy;

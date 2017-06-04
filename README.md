@@ -13,5 +13,5 @@ https://hackaday.io/project/10581-free-beer-selfie
 git clone in /home/pi
 run the /jar/selfpi.jar with 'sudo java -jar selfpi.jar'
 
-https://cdn.hackaday.io/images/7536721492851531543.jpg
+![SelfPi in action](https://cdn.hackaday.io/images/7536721492851531543.jpg)
 

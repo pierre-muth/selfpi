@@ -7,11 +7,12 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.GridLayout;
-import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
@@ -40,6 +41,8 @@ public class Gui extends JPanel {
 	
 	private boolean verticalOrientation = false;
 
+	private NumberFormat formatter = new DecimalFormat("#0.0");     
+	
 	public Gui(boolean verticalOrientation) {
 		this.verticalOrientation = verticalOrientation;
 		setLayout(new BorderLayout());
@@ -208,9 +211,10 @@ public class Gui extends JPanel {
 	private JLabel countLabel;
 	private JLabel getCountLabel() {
 		if(countLabel == null) {
-			countLabel = new JLabel("9");
+			countLabel = new JLabel(formatter.format(SelfPi.countdownLength));
 			countLabel.setHorizontalTextPosition(SwingConstants.CENTER);
-			countLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 300));
+			if (verticalOrientation) countLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 300));
+			else countLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 200));
 			countLabel.setHorizontalAlignment(JLabel.CENTER);
 		}
 		return countLabel;
@@ -329,8 +333,8 @@ public class Gui extends JPanel {
 		
 		@Override
 		public void run() {
-			for (int counter = SelfPi.countdownLength; counter >= 0; counter -= 1) {
-				final String count = "<html><center>"+Integer.toString(counter);
+			for (double counter = SelfPi.countdownLength; counter >= 0; counter -= 0.1) {
+				final String count = "<html><center>"+formatter.format(counter);
 				
 				SwingUtilities.invokeLater(new Runnable() {
 					@Override
@@ -339,8 +343,9 @@ public class Gui extends JPanel {
 					}
 				});
 				
-				try { Thread.sleep(1000); } catch (InterruptedException e) {}
+				try { Thread.sleep(100); } catch (InterruptedException e) {}
 			}
+			getCountLabel().setText("0.0");
 		}
 	}
 	

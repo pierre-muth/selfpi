@@ -1,7 +1,7 @@
 package selfpi;
 
 /**
- * to launch: sudo java -cp ".:/home/pi/selfpi2/lib/*" selfpi.Launcher 
+ * to launch: sudo java -cp ".:/home/pi/selfpi/lib/*" selfpi.Launcher 
  */
 
 import java.awt.event.KeyEvent;
@@ -44,7 +44,7 @@ import com.pi4j.io.gpio.event.GpioPinDigitalStateChangeEvent;
 import com.pi4j.io.gpio.event.GpioPinListenerDigital;
 
 public class SelfPi implements KeyListener {
-	public static final String ROOTPATH = "/home/pi/selfpi2";
+	public static final String ROOTPATH = "/home/pi/selfpi";
 	public static final String SETUP_PATH = ROOTPATH+"/setup/";
 	public static final String CONFIG_FILE_PATH = SETUP_PATH+"config.txt";
 	public static final String PICTURE_COUNTER_FILE_PATH = SETUP_PATH+"counter.txt";

@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.util.List;
 
 import javax.imageio.ImageIO;
+import javax.usb.UsbClaimException;
 import javax.usb.UsbConfiguration;
 import javax.usb.UsbDevice;
 import javax.usb.UsbDeviceDescriptor;
@@ -102,10 +103,10 @@ public class TMT20Printer {
 	public TMT20Printer(short product_id) throws SecurityException, UsbException {
 		TMT20Printer.product_id = product_id;
 		
-		// Search for epson TM-T20
+		// Search for printer, such as epson TM-T20
 		device = findUsb(UsbHostManager.getUsbServices().getRootUsbHub());
 		if (device == null) {
-			System.err.println("Epson TM-T20 not found :(");
+			System.err.println("Printer: vendor="+VENDOR_ID+", product="+product_id+" not found :(");
 			System.exit(1);
 			return;
 		}
@@ -127,14 +128,14 @@ public class TMT20Printer {
 		SET_SPEED = new int[] {0x1d, 0x28, 0x4b, 0x02, 0x00, 0x32, SelfPi.printerSpeed};		
 		
 		initPrinter(SelfPi.printDensity, SelfPi.printerSpeed);
-		System.out.println("Printer configured and resetting");
+		System.out.println("Printer configured and resetting...");
 		
 		try { Thread.sleep(5000); } catch (InterruptedException e) {}
 		
-		// Search for epson TM-T20
+		// Search for printer, such as epson TM-T20
 		device = findUsb(UsbHostManager.getUsbServices().getRootUsbHub());
 		if (device == null) {
-			System.err.println("Epson TM-T20 not found :(");
+			System.err.println("Printer: vendor="+VENDOR_ID+", product="+product_id+" not found :(");
 			System.exit(1);
 			return;
 		}
@@ -142,14 +143,20 @@ public class TMT20Printer {
 		// Claim the interface
 		configuration = device.getActiveUsbConfiguration();
 		usbInterface = configuration.getUsbInterface((byte) 0);
-		usbInterface.claim(new UsbInterfacePolicy() {            
-			@Override
-			public boolean forceClaim(UsbInterface usbInterface) {
-				return true;
-			}
-		});
-
+		
+		try {
+			usbInterface.claim(new UsbInterfacePolicy() {            
+				@Override
+				public boolean forceClaim(UsbInterface usbInterface) {
+					return true;
+				}
+			});
+		} catch (UsbClaimException e) {
+			e.printStackTrace();
+		} 
+		
 		usbEndpoint = usbInterface.getUsbEndpoint((byte) 1);
+		
 		System.out.println("Printer re-started");
 		
 		
@@ -212,8 +219,11 @@ public class TMT20Printer {
 				if (launcher != null) return launcher;
 			} else {
 				UsbDeviceDescriptor desc = device.getUsbDeviceDescriptor();
-				System.out.println("USB idVendor: "+desc.idVendor()+", idProduct: "+desc.idProduct());
-				if (desc.idVendor() == VENDOR_ID && desc.idProduct() == product_id) return device;
+				System.out.println("Found on USB: idVendor: "+desc.idVendor()+", idProduct: "+desc.idProduct());
+				if (desc.idVendor() == VENDOR_ID && desc.idProduct() == product_id) {
+					System.out.println("Got our printer.");
+					return device;
+				}
 			}
 		}
 		return null;

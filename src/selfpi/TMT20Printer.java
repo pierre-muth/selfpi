@@ -152,7 +152,7 @@ public class TMT20Printer {
 				}
 			});
 		} catch (UsbClaimException e) {
-			e.printStackTrace();
+			System.out.println("No need to re-claim usb interface.");
 		} 
 		
 		usbEndpoint = usbInterface.getUsbEndpoint((byte) 1);

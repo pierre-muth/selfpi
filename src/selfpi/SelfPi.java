@@ -61,7 +61,9 @@ public class SelfPi implements KeyListener {
 	public static final String list_files = "--list-files ";
 	public static final String get_file = "--get-file ";
 
+	public static String PI4J_GPIO_ = "GPIO ";
 	public static boolean DEBUG = false; 
+	
 	public static SelfpiState selfpiState = SelfpiState.IDLE;
 
 	private static int historySouvenirFileIndex = 0;
@@ -104,6 +106,10 @@ public class SelfPi implements KeyListener {
 	private static final String CAMERACONTRASTKEY = "CAMERA_CONTRAST:";
 	private static final String NORMALISEHISTOGRAMKEY = "NORMALISE_HISTOGRAM:";
 	private static final String GAMMACORRECTIONKEY = "GAMMA_CORRECTION:";
+	private static final String GPIO_REDBUTTONKEY = "GPIO_REDBUTTON:";
+	private static final String GPIO_WHITEBUTTONKEY = "GPIO_WHITEBUTTON:";
+	private static final String GPIO_REDLEDKEY = "GPIO_REDLED:";
+	private static final String GPIO_WHITELEDKEY = "GPIO_WHITELED:";
 	
 	public static int winningTicketCounter = 0;
 
@@ -128,6 +134,10 @@ public class SelfPi implements KeyListener {
 	public static String cameraContast = "50";
 	public static boolean normalyseHistogram = true;
 	public static double gamma = 1.0; 
+	public static String gpio_red_button = "GPIO 4";
+	public static String gpio_white_button = "GPIO 5";
+	public static String gpio_red_led = "GPIO 1";
+	public static String gpio_white_led = "GPIO 6";
 	
 	private Gui gui;
 	private File lastSouvenirPictureFile;
@@ -211,6 +221,22 @@ public class SelfPi implements KeyListener {
 				if (line != null && line.contains(GAMMACORRECTIONKEY)) {
 					gamma = Double.parseDouble( br.readLine() );
 				}
+				line = br.readLine();
+				if (line != null && line.contains(GPIO_REDBUTTONKEY)) {
+					gpio_red_button = br.readLine();
+				}
+				line = br.readLine();
+				if (line != null && line.contains(GPIO_WHITEBUTTONKEY)) {
+					gpio_white_button = br.readLine();
+				}
+				line = br.readLine();
+				if (line != null && line.contains(GPIO_REDLEDKEY)) {
+					gpio_red_led = br.readLine();
+				}
+				line = br.readLine();
+				if (line != null && line.contains(GPIO_WHITELEDKEY)) {
+					gpio_white_led = br.readLine();
+				}
 
 			} catch (IOException e) {
 				System.out.println("Error in config.txt, trying with default values");
@@ -260,26 +286,37 @@ public class SelfPi implements KeyListener {
 				}
 			}
 
-			// Listening Button
+			// GPIO Button and led setup
 			GpioController gpio;
 			GpioPinDigitalInput redButton;
 			GpioPinDigitalInput whiteButton;
 			gpio = GpioFactory.getInstance();
 
-			redButton = gpio.provisionDigitalInputPin(RaspiPin.GPIO_04, PinPullResistance.PULL_UP);
-			redButtonListener = new RedButtonListener();
-			redButton.addListener(redButtonListener);
+			if (gpio_red_button.contains(PI4J_GPIO_)) {
+//				redButton = gpio.provisionDigitalInputPin(RaspiPin.GPIO_04, PinPullResistance.PULL_UP);
+				redButton = gpio.provisionDigitalInputPin(RaspiPin.getPinByName(gpio_red_button), PinPullResistance.PULL_UP);
+				redButtonListener = new RedButtonListener();
+				redButton.addListener(redButtonListener);
+			}
 
-			whiteButton = gpio.provisionDigitalInputPin(RaspiPin.GPIO_05, PinPullResistance.PULL_UP);
-			whiteButtonListener = new WhiteButtonListener();
-			whiteButton.addListener(whiteButtonListener);
+			if (gpio_white_button.contains(PI4J_GPIO_)) {
+				whiteButton = gpio.provisionDigitalInputPin(RaspiPin.getPinByName(gpio_white_button), PinPullResistance.PULL_UP);
+				whiteButtonListener = new WhiteButtonListener();
+				whiteButton.addListener(whiteButtonListener); 
+			}
 
-			whiteButtonLed = gpio.provisionDigitalOutputPin(RaspiPin.GPIO_06);
-			whiteButtonLed.high();
+			if (gpio_white_led.contains(PI4J_GPIO_)) {
+				whiteButtonLed = gpio.provisionDigitalOutputPin(RaspiPin.getPinByName(gpio_white_led));
+				whiteButtonLed.high();
+			}
 
-			GpioPinPwmOutput buttonLedPin = gpio.provisionPwmOutputPin(RaspiPin.GPIO_01);
-			redButtonLed = new ButtonLed(buttonLedPin);
-			redButtonLed.startSoftBlink();
+			if (gpio_red_led.contains(PI4J_GPIO_)) {
+				GpioPinPwmOutput buttonLedPin = gpio.provisionPwmOutputPin(RaspiPin.getPinByName(gpio_red_led));
+				redButtonLed = new ButtonLed(buttonLedPin);
+				redButtonLed.startSoftBlink();
+			} else {
+				redButtonLed = new ButtonLed(null);
+			}
 
 			// Start Pi camera
 			picam = new PiCamera(printerdots, printerdots);
@@ -343,7 +380,8 @@ public class SelfPi implements KeyListener {
 		if (e.getKeyCode() == KeyEvent.VK_SPACE || 
 				e.getKeyCode() == KeyEvent.VK_NUMPAD0 ||
 				e.getKeyCode() == KeyEvent.VK_0){
-			redButtonListener.doPress();
+			System.out.println(e.getKeyCode()+" pressed !");
+			stateMachineTransition(SelfPiEvent.RED_BUTTON);
 		}
 	}
 
@@ -543,10 +581,10 @@ public class SelfPi implements KeyListener {
 	}
 
 	private void share(){
-		SelfPi.whiteButtonLed.high();
-		sharingThread = new Thread(new RunShare());
+		setWhiteLedOFF();
+		sharingThread = new Thread(new RunShareToFacebook());
 		sharingThread.start();
-		SelfPi.whiteButtonLed.high();
+		setWhiteLedOFF();
 	}
 
 	private void rePrint(){
@@ -668,6 +706,316 @@ public class SelfPi implements KeyListener {
 		new Thread(new ImportDSLR()).start();
 	}
 
+	private void resetMode(){
+		SelfPi.redButtonLed.startSoftBlink();
+
+	}
+
+	public File chooseFunnyImage(){
+		File folder = new File(funnyImageFilefolder);
+		File[] listOfFiles = folder.listFiles();
+		int random = (int) (Math.random()*listOfFiles.length);
+		return listOfFiles[random];
+	}
+
+	public File chooseRandomImage(){
+		File folder = new File(SelfPi.souvenirImageFilefolder);
+		File[] listOfFiles = folder.listFiles();
+		int random = (int) (Math.random()*listOfFiles.length);
+		return listOfFiles[random];
+	}
+
+	public String getRandomQuote(){
+		int rand = (int) (Math.random()*sentences.size());
+		String sentence = WordUtils.wrap(sentences.get(rand), 48) +"\n";
+		return sentence;
+	}
+	
+	public void setWhiteLedON(){
+		if (SelfPi.whiteButtonLed != null){
+			SelfPi.whiteButtonLed.low();
+		}
+	}
+	
+	public void setWhiteLedOFF(){
+		if (SelfPi.whiteButtonLed != null){
+			SelfPi.whiteButtonLed.high();
+		}
+	}
+
+	public static void main(String[] args) {
+		final JFrame frame = new JFrame("SelfPi");
+		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		final SelfPi selfpi = new SelfPi();
+
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				frame.add(selfpi.getGui());
+				frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+				frame.setUndecorated(true);
+				frame.setVisible(true);
+			}
+		});
+
+		frame.addKeyListener(selfpi);
+
+		Runtime.getRuntime().addShutdownHook(new Thread() {
+			public void run() {
+				System.out.println("Closing...");
+				printer.close();
+				picam.close();
+			}
+		});
+	}
+
+	class RedButtonListener implements GpioPinListenerDigital {
+
+		private long lastPressedTime;
+
+		public RedButtonListener() {
+			lastPressedTime = System.currentTimeMillis();
+		}
+
+		@Override
+		public void handleGpioPinDigitalStateChangeEvent(GpioPinDigitalStateChangeEvent event) {
+			if (event.getState().isHigh()) return;
+			handle();
+		}
+
+		public void doPress() {
+			handle();
+		}
+
+		private void handle() {
+			long currentTime = System.currentTimeMillis();
+			if ( currentTime - lastPressedTime < 500 ) return; // reject if less than 500 ms
+			lastPressedTime = currentTime;
+
+			System.out.println("Red Button pressed !");
+
+			stateMachineTransition(SelfPiEvent.RED_BUTTON);
+		}
+	} 
+
+	class WhiteButtonListener implements GpioPinListenerDigital {
+		private long lastTime;
+
+		public WhiteButtonListener() {
+			lastTime = System.currentTimeMillis();
+		}
+
+		@Override
+		public void handleGpioPinDigitalStateChangeEvent(GpioPinDigitalStateChangeEvent event) {
+			if (event.getState().isHigh()) return;
+			handle();
+		}
+
+		public void doPress() {
+			handle();
+		}
+
+		private void handle() {
+			long currentTime = System.currentTimeMillis();
+			if ( currentTime - lastTime < 500 ) return; // reject if less than 500 ms
+			lastTime = currentTime;
+
+			System.out.println("White Button pressed !");
+
+			stateMachineTransition(SelfPiEvent.WHITE_BUTTON);
+		}
+	}
+
+	private class RunShareToFacebook implements Runnable{
+
+		@Override
+		public void run() {
+			if (facebook != null) {
+				try {
+					facebook.publishApicture(lastSouvenirPictureFile);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	private class RunPrint6History implements Runnable{
+		private int historyFileIndex;
+		private File directory;
+		public RunPrint6History() {
+			if (selfpiState == SelfpiState.HISTORIC_WINNER) {
+				this.directory = historyWinnerDirectory;
+				this.historyFileIndex = historyWinnerFileIndex;
+			}
+			if (selfpiState == SelfpiState.HISTORIC_SOUVENIR) {
+				this.directory = historySouvenirDirectory;
+				this.historyFileIndex = historySouvenirFileIndex;
+			}
+			if (selfpiState == SelfpiState.HISTORIC_DSLR) {
+				this.directory = historyDSLRDirectory;
+				this.historyFileIndex = historyDSLRFileIndex;
+			}
+		}
+
+		@Override
+		public void run() {
+
+			SelfPi.redButtonLed.startBlinking();
+
+			File folder = directory;
+			File[] listOfFiles = folder.listFiles();
+			Arrays.sort(listOfFiles);
+
+			for (int i = historyFileIndex; i < listOfFiles.length && i < historyFileIndex+6; i++) {
+				System.out.println("printing: "+listOfFiles[i].getName());
+				try { Thread.sleep(500); } catch (InterruptedException e) {}
+				printer.print(listOfFiles[i]);
+				// printing
+				try { Thread.sleep(4000); } catch (InterruptedException e) {}
+				System.out.println("printed.");
+			}
+
+			printer.cut();
+			printer.print(ticketHeader);
+			SelfPi.redButtonLed.startSoftBlink();
+		}
+
+	}
+
+	private class RunWaitForSharing implements Runnable {
+		@Override
+		public void run() {
+
+			// wait for printing
+			try { Thread.sleep(10000); } catch (InterruptedException e) {}
+
+			// end
+			setWhiteLedOFF();
+			
+			SelfPi.redButtonLed.startSoftBlink();
+
+			SelfPi.this.stateMachineTransition(SelfPiEvent.RESET);
+		}
+	}
+
+	private class RunPrinting implements Runnable {
+
+		@Override
+		public void run() {
+
+			if (winningTicketCounter%frequencyTicketWin == 0){
+				if ( (winningTicketCounter/frequencyTicketWin) %2 == 0 && SelfPi.useWinnerImages) {
+					printer.print(chooseRandomImage());
+				} else if (useFunnyImages) {
+					printer.print(chooseFunnyImage());
+				}
+			} else {
+				printer.print(lastSouvenirPictureFile);
+			}
+
+			if (printFunnyQuote) {
+				printer.print(getRandomQuote());
+			}
+
+			if (winningTicketCounter%frequencyTicketWin == 0){
+				printer.print(ticketWinnerFoot);
+			} else {
+				printer.print(ticketSouvenirFoot);
+			}
+
+			printer.cut();
+			printer.print(ticketHeader);
+
+			System.out.println("count: "+winningTicketCounter+", freq:"+frequencyTicketWin);
+			// inc print counter
+			winningTicketCounter++;
+			Path file = Paths.get(PICTURE_COUNTER_FILE_PATH);
+			String line = Integer.toString(winningTicketCounter);
+			List<String> lines = Arrays.asList(line);
+			try {
+				Files.write(file, lines);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}				
+
+			// set button state
+			if (useFacebook) setWhiteLedON();
+			SelfPi.redButtonLed.startSoftBlink();
+
+			SelfPi.this.stateMachineTransition(SelfPiEvent.END_PRINTING);
+		}
+
+	}
+
+	private class RunTakeAPicture implements Runnable{
+
+		@Override
+		public void run() {
+
+			SelfPi.redButtonLed.startBlinking();
+
+			// wait the countdown
+			try { Thread.sleep((countdownLength-1)*1000); } catch (InterruptedException e) {}
+
+			// take a picture
+			String numberFileName = Integer.toString( (int) (new Date().getTime() /1000) );
+			lastSouvenirPictureFile = new File(souvenirImageFilefolder+numberFileName+".jpg");
+			picam.takeApictureToFile(lastSouvenirPictureFile);
+
+			try { Thread.sleep(100); } catch (InterruptedException e) {}
+			SelfPi.this.stateMachineTransition(SelfPiEvent.PRINT);
+		}
+	}
+
+	private class ButtonLed {
+		private GpioPinPwmOutput ledPin;
+		private Timer timer;
+		private int pwmValue = -50; 
+
+		public ButtonLed(GpioPinPwmOutput ledPin) {
+			this.ledPin = ledPin;
+		}
+
+		public void startSoftBlink() {
+			if (ledPin == null) return;
+			reset();
+			TimerTask toggler = new TimerTask() {
+				@Override
+				public void run() {
+					if (pwmValue<50) pwmValue++;
+					else pwmValue = -50;
+					ledPin.setPwm( Math.abs(pwmValue)*5 );
+				}
+			};
+			timer = new Timer();
+			timer.schedule(toggler, 1, 25);
+		}
+
+		public void startBlinking() {
+			if (ledPin == null) return;
+			reset();
+			TimerTask toggler = new TimerTask() {
+				@Override
+				public void run() {
+					if (pwmValue >= 50) pwmValue = 0;
+					else pwmValue = 1000;
+					ledPin.setPwm(pwmValue);
+				}
+			};
+
+			timer = new Timer();
+			timer.schedule(toggler, 1, 300);
+		}
+
+		public void reset() {
+			if (timer != null) {
+				timer.cancel();
+				timer = null;
+			}
+		}
+	}
+	
 	private class ImportDSLR implements Runnable {
 
 		@Override
@@ -802,305 +1150,6 @@ public class SelfPi implements KeyListener {
 			output = "";
 		}
 
-	}
-
-
-	private void resetMode(){
-		SelfPi.redButtonLed.startSoftBlink();
-
-	}
-
-	public File chooseFunnyImage(){
-		File folder = new File(funnyImageFilefolder);
-		File[] listOfFiles = folder.listFiles();
-		int random = (int) (Math.random()*listOfFiles.length);
-		return listOfFiles[random];
-	}
-
-	public File chooseRandomImage(){
-		File folder = new File(SelfPi.souvenirImageFilefolder);
-		File[] listOfFiles = folder.listFiles();
-		int random = (int) (Math.random()*listOfFiles.length);
-		return listOfFiles[random];
-	}
-
-	public String getRandomQuote(){
-		int rand = (int) (Math.random()*sentences.size());
-		String sentence = WordUtils.wrap(sentences.get(rand), 48) +"\n";
-		return sentence;
-	}
-
-	public static void main(String[] args) {
-		final JFrame frame = new JFrame("SelfPi");
-		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		final SelfPi selfpi = new SelfPi();
-
-		SwingUtilities.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				frame.add(selfpi.getGui());
-				frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
-				frame.setUndecorated(true);
-				frame.setVisible(true);
-			}
-		});
-
-		frame.addKeyListener(selfpi);
-
-		Runtime.getRuntime().addShutdownHook(new Thread() {
-			public void run() {
-				System.out.println("Closing...");
-				printer.close();
-				picam.close();
-			}
-		});
-	}
-
-	class RedButtonListener implements GpioPinListenerDigital {
-
-		private long lastPressedTime;
-
-		public RedButtonListener() {
-			lastPressedTime = System.currentTimeMillis();
-		}
-
-		@Override
-		public void handleGpioPinDigitalStateChangeEvent(GpioPinDigitalStateChangeEvent event) {
-			if (event.getState().isHigh()) return;
-			handle();
-		}
-
-		public void doPress() {
-			handle();
-		}
-
-		private void handle() {
-			long currentTime = System.currentTimeMillis();
-			if ( currentTime - lastPressedTime < 500 ) return; // reject if less than 500 ms
-			lastPressedTime = currentTime;
-
-			System.out.println("Red Button pressed !");
-
-			stateMachineTransition(SelfPiEvent.RED_BUTTON);
-		}
-	} 
-
-	class WhiteButtonListener implements GpioPinListenerDigital {
-		private long lastTime;
-
-		public WhiteButtonListener() {
-			lastTime = System.currentTimeMillis();
-		}
-
-		@Override
-		public void handleGpioPinDigitalStateChangeEvent(GpioPinDigitalStateChangeEvent event) {
-			if (event.getState().isHigh()) return;
-			handle();
-		}
-
-		public void doPress() {
-			handle();
-		}
-
-		private void handle() {
-			long currentTime = System.currentTimeMillis();
-			if ( currentTime - lastTime < 500 ) return; // reject if less than 500 ms
-			lastTime = currentTime;
-
-			System.out.println("White Button pressed !");
-
-			stateMachineTransition(SelfPiEvent.WHITE_BUTTON);
-		}
-	}
-
-	private class RunShare implements Runnable{
-
-		@Override
-		public void run() {
-			if (facebook != null) {
-				try {
-					facebook.publishApicture(lastSouvenirPictureFile);
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-		}
-	}
-
-	private class RunPrint6History implements Runnable{
-		private int historyFileIndex;
-		private File directory;
-		public RunPrint6History() {
-			if (selfpiState == SelfpiState.HISTORIC_WINNER) {
-				this.directory = historyWinnerDirectory;
-				this.historyFileIndex = historyWinnerFileIndex;
-			}
-			if (selfpiState == SelfpiState.HISTORIC_SOUVENIR) {
-				this.directory = historySouvenirDirectory;
-				this.historyFileIndex = historySouvenirFileIndex;
-			}
-			if (selfpiState == SelfpiState.HISTORIC_DSLR) {
-				this.directory = historyDSLRDirectory;
-				this.historyFileIndex = historyDSLRFileIndex;
-			}
-		}
-
-		@Override
-		public void run() {
-
-			SelfPi.redButtonLed.startBlinking();
-
-			File folder = directory;
-			File[] listOfFiles = folder.listFiles();
-			Arrays.sort(listOfFiles);
-
-			for (int i = historyFileIndex; i < listOfFiles.length && i < historyFileIndex+6; i++) {
-				System.out.println("printing: "+listOfFiles[i].getName());
-				try { Thread.sleep(500); } catch (InterruptedException e) {}
-				printer.print(listOfFiles[i]);
-				// printing
-				try { Thread.sleep(4000); } catch (InterruptedException e) {}
-				System.out.println("printed.");
-			}
-
-			printer.cut();
-			printer.print(ticketHeader);
-			SelfPi.redButtonLed.startSoftBlink();
-		}
-
-	}
-
-	private class RunWaitForSharing implements Runnable {
-		@Override
-		public void run() {
-
-			// wait for printing
-			try { Thread.sleep(10000); } catch (InterruptedException e) {}
-
-			// end
-			SelfPi.whiteButtonLed.high();
-			SelfPi.redButtonLed.startSoftBlink();
-
-			SelfPi.this.stateMachineTransition(SelfPiEvent.RESET);
-		}
-	}
-
-	private class RunPrinting implements Runnable {
-
-		@Override
-		public void run() {
-
-			if (winningTicketCounter%frequencyTicketWin == 0){
-				if ( (winningTicketCounter/frequencyTicketWin) %2 == 0 && SelfPi.useWinnerImages) {
-					printer.print(chooseRandomImage());
-				} else if (useFunnyImages) {
-					printer.print(chooseFunnyImage());
-				}
-			} else {
-				printer.print(lastSouvenirPictureFile);
-			}
-
-			if (printFunnyQuote) {
-				printer.print(getRandomQuote());
-			}
-
-			if (winningTicketCounter%frequencyTicketWin == 0){
-				printer.print(ticketWinnerFoot);
-			} else {
-				printer.print(ticketSouvenirFoot);
-			}
-
-			printer.cut();
-			printer.print(ticketHeader);
-
-			System.out.println("count: "+winningTicketCounter+", freq:"+frequencyTicketWin);
-			// inc print counter
-			winningTicketCounter++;
-			Path file = Paths.get(PICTURE_COUNTER_FILE_PATH);
-			String line = Integer.toString(winningTicketCounter);
-			List<String> lines = Arrays.asList(line);
-			try {
-				Files.write(file, lines);
-			} catch (IOException e) {
-				e.printStackTrace();
-			}				
-
-			// wait for printing
-			//			try { Thread.sleep(2000); } catch (InterruptedException e) {}
-
-			// set button state
-			if (useFacebook) SelfPi.whiteButtonLed.low();
-			SelfPi.redButtonLed.startSoftBlink();
-
-			SelfPi.this.stateMachineTransition(SelfPiEvent.END_PRINTING);
-		}
-
-	}
-
-	private class RunTakeAPicture implements Runnable{
-
-		@Override
-		public void run() {
-
-			SelfPi.redButtonLed.startBlinking();
-
-			// wait the countdown
-			try { Thread.sleep((countdownLength-1)*1000); } catch (InterruptedException e) {}
-
-			// take a picture
-			String numberFileName = Integer.toString( (int) (new Date().getTime() /1000) );
-			lastSouvenirPictureFile = new File(souvenirImageFilefolder+numberFileName+".jpg");
-			picam.takeApictureToFile(lastSouvenirPictureFile);
-
-			try { Thread.sleep(100); } catch (InterruptedException e) {}
-			SelfPi.this.stateMachineTransition(SelfPiEvent.PRINT);
-		}
-	}
-
-	private class ButtonLed {
-		private GpioPinPwmOutput ledPin;
-		private Timer timer;
-		private int pwmValue = -50; 
-
-		public ButtonLed(GpioPinPwmOutput ledPin) {
-			this.ledPin = ledPin;
-		}
-
-		public void startSoftBlink() {
-			reset();
-			TimerTask toggler = new TimerTask() {
-				@Override
-				public void run() {
-					if (pwmValue<50) pwmValue++;
-					else pwmValue = -50;
-					ledPin.setPwm( Math.abs(pwmValue)*5 );
-				}
-			};
-			timer = new Timer();
-			timer.schedule(toggler, 1, 25);
-		}
-
-		public void startBlinking() {
-			reset();
-			TimerTask toggler = new TimerTask() {
-				@Override
-				public void run() {
-					if (pwmValue >= 50) pwmValue = 0;
-					else pwmValue = 1000;
-					ledPin.setPwm(pwmValue);
-				}
-			};
-
-			timer = new Timer();
-			timer.schedule(toggler, 1, 300);
-		}
-
-		public void reset() {
-			if (timer != null) {
-				timer.cancel();
-				timer = null;
-			}
-		}
 	}
 
 }

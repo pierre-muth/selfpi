@@ -51,7 +51,7 @@ public class SelfPi implements KeyListener {
 	public static final String QUOTE_SENTENCES_FILE_PATH = SETUP_PATH+"phrase.txt";
 	public static final String FACEBOOK_CONFIG_FILE_PATH = SETUP_PATH+"facebook.txt";
 	public static final String souvenirImageFilefolder = ROOTPATH+"/souvenir/";
-	public static final String winnerImageFilefolder = ROOTPATH+"/winner/";
+	public static final String playerImageFilefolder = ROOTPATH+"/player/";
 	public static final String funnyImageFilefolder = ROOTPATH+"/funny/";
 	public static final String dslrImageFilefolder = ROOTPATH+"/dslr/";
 
@@ -67,16 +67,17 @@ public class SelfPi implements KeyListener {
 	public static SelfpiState selfpiState = SelfpiState.IDLE;
 
 	private static int historySouvenirFileIndex = 0;
-	private static int historyWinnerFileIndex = 0;
+	private static int historyPlayerFileIndex = 0;
 	private static int historyDSLRFileIndex = 0;
 
-	private static File historyWinnerDirectory = new File(SelfPi.funnyImageFilefolder);
+	private static File historyPlayerDirectory = new File(SelfPi.playerImageFilefolder);
+	private static File historyFunnyDirectory = new File(SelfPi.funnyImageFilefolder);
 	private static File historySouvenirDirectory = new File(SelfPi.souvenirImageFilefolder);
 	private static File historyDSLRDirectory = new File(SelfPi.dslrImageFilefolder);
 
 
 	private static PiCamera picam;
-	private static TMT20Printer printer;
+	private static EpsonESCPOSPrinter printer;
 	private static ButtonLed redButtonLed;
 	private static GpioPinDigitalOutput whiteButtonLed;
 	private static WhiteButtonListener whiteButtonListener;
@@ -89,7 +90,7 @@ public class SelfPi implements KeyListener {
 
 	private Facebook facebook;
 
-	private static final String WINNERKEY = "WINNER:";
+	private static final String WINNERKEY = "WINNER_FREQUENCY:";
 	private static final String FUNNYQUOTEKEY = "FUNNYQUOTE:";
 	private static final String WINNERIMAGESKEY = "WINNERIMAGES:";
 	private static final String FUNNYIMAGESKEY = "FUNNYIMAGES:";
@@ -271,7 +272,7 @@ public class SelfPi implements KeyListener {
 
 			// start Pinter
 			try {
-				printer = new TMT20Printer(printerProductID);
+				printer = new EpsonESCPOSPrinter(printerProductID);
 			} catch (SecurityException | UsbException e) {
 				e.printStackTrace();
 				System.exit(1);
@@ -332,7 +333,7 @@ public class SelfPi implements KeyListener {
 			stateMachineTransition(SelfPiEvent.HISTORY_SOUVERNIR_BUTTON);
 		}
 		if (e.getKeyCode() == KeyEvent.VK_W){
-			stateMachineTransition(SelfPiEvent.HISTORY_WINNER_BUTTON);
+			stateMachineTransition(SelfPiEvent.HISTORY_PLAYER_BUTTON);
 		}
 		if (e.getKeyCode() == KeyEvent.VK_D){
 			stateMachineTransition(SelfPiEvent.HISTORY_DSLR_BUTTON);
@@ -411,7 +412,7 @@ public class SelfPi implements KeyListener {
 				selfpiState = SelfpiState.HISTORIC_SOUVENIR;
 				populateHistoricImages();
 				break;
-			case HISTORY_WINNER_BUTTON:
+			case HISTORY_PLAYER_BUTTON:
 				selfpiState = SelfpiState.HISTORIC_WINNER;
 				populateHistoricImages();
 				break;
@@ -601,9 +602,9 @@ public class SelfPi implements KeyListener {
 
 	private void incrementHistoryFileIndex() {
 		if (selfpiState == SelfpiState.HISTORIC_WINNER) {
-			File[] listOfFiles = historyWinnerDirectory.listFiles();
-			if (historyWinnerFileIndex+6 < listOfFiles.length){
-				historyWinnerFileIndex +=6;
+			File[] listOfFiles = historyFunnyDirectory.listFiles();
+			if (historyPlayerFileIndex+6 < listOfFiles.length){
+				historyPlayerFileIndex +=6;
 			}
 		}
 		if (selfpiState == SelfpiState.HISTORIC_SOUVENIR) {
@@ -622,7 +623,7 @@ public class SelfPi implements KeyListener {
 
 	private void decrementHistoryFileIndex() {
 		if (selfpiState == SelfpiState.HISTORIC_WINNER) {
-			if (historyWinnerFileIndex-6 >=0 ) historyWinnerFileIndex-=6;
+			if (historyPlayerFileIndex-6 >=0 ) historyPlayerFileIndex-=6;
 		}
 		if (selfpiState == SelfpiState.HISTORIC_SOUVENIR) {
 			if (historySouvenirFileIndex-6 >=0 ) historySouvenirFileIndex-=6;
@@ -636,8 +637,8 @@ public class SelfPi implements KeyListener {
 		int historyFileIndex;
 		File directory;
 		if (selfpiState == SelfpiState.HISTORIC_WINNER) {
-			directory = historyWinnerDirectory;
-			historyFileIndex = historyWinnerFileIndex;
+			directory = historyFunnyDirectory;
+			historyFileIndex = historyPlayerFileIndex;
 		} else if (selfpiState == SelfpiState.HISTORIC_SOUVENIR) {
 			directory = historySouvenirDirectory;
 			historyFileIndex = historySouvenirFileIndex;
@@ -675,8 +676,8 @@ public class SelfPi implements KeyListener {
 		File folder;
 		int historyFileIndex;
 		if (selfpiState == SelfpiState.HISTORIC_WINNER) {
-			folder = historyWinnerDirectory;
-			historyFileIndex = historyWinnerFileIndex;
+			folder = historyFunnyDirectory;
+			historyFileIndex = historyPlayerFileIndex;
 		} else if (selfpiState == SelfpiState.HISTORIC_SOUVENIR) {
 			folder = historySouvenirDirectory;
 			historyFileIndex = historySouvenirFileIndex;
@@ -718,7 +719,7 @@ public class SelfPi implements KeyListener {
 		return listOfFiles[random];
 	}
 
-	public File chooseRandomImage(){
+	public File chooseRandomSouvenirImage(){
 		File folder = new File(SelfPi.souvenirImageFilefolder);
 		File[] listOfFiles = folder.listFiles();
 		int random = (int) (Math.random()*listOfFiles.length);
@@ -845,8 +846,8 @@ public class SelfPi implements KeyListener {
 		private File directory;
 		public RunPrint6History() {
 			if (selfpiState == SelfpiState.HISTORIC_WINNER) {
-				this.directory = historyWinnerDirectory;
-				this.historyFileIndex = historyWinnerFileIndex;
+				this.directory = historyFunnyDirectory;
+				this.historyFileIndex = historyPlayerFileIndex;
 			}
 			if (selfpiState == SelfpiState.HISTORIC_SOUVENIR) {
 				this.directory = historySouvenirDirectory;
@@ -906,7 +907,7 @@ public class SelfPi implements KeyListener {
 
 			if (winningTicketCounter%frequencyTicketWin == 0){
 				if ( (winningTicketCounter/frequencyTicketWin) %2 == 0 && SelfPi.useWinnerImages) {
-					printer.print(chooseRandomImage());
+					printer.print(chooseRandomSouvenirImage());
 				} else if (useFunnyImages) {
 					printer.print(chooseFunnyImage());
 				}

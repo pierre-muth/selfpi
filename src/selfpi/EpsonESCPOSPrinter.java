@@ -24,7 +24,7 @@ import javax.usb.UsbNotClaimedException;
 import javax.usb.UsbNotOpenException;
 import javax.usb.UsbPipe;
 
-public class TMT20Printer {
+public class EpsonESCPOSPrinter {
 
 	private static final String testString = "test usb4java\n";
 	// The vendor ID 
@@ -79,12 +79,12 @@ public class TMT20Printer {
 		0x1D, 'V', 'A', 0x10  
 	};
 	
-	// paper cut
+	// paper enter in user stting mode
 	private static final int[] ENTER_USER_SETTINGS = {
 		0x1D, 0x28, 0x45, 0x03, 0x00, 0x01, 0x49, 0x4E  
 	};
 		
-	// paper cut
+	// paper exit the user setting mode
 	private static final int[] END_USER_SETTINGS = {
 			0x1D, 0x28, 0x45, 0x04, 0x00, 0x02, 0x4F, 0x55, 0x54  
 	};
@@ -94,14 +94,17 @@ public class TMT20Printer {
     // 0x1d, 0x28, 0x4b, 0x02, 0x00, 0x32, m (01-09)
 	private static int[] SET_SPEED = {};
 	
+	// paper exit the user setting mode
+	private static final int[] LINE_FEED = { 0x0A };
+	
 
 	private UsbDevice device;
 	private UsbEndpoint usbEndpoint;
 	private UsbInterface usbInterface;
 	private Thread usbPrinting;
 	
-	public TMT20Printer(short product_id) throws SecurityException, UsbException {
-		TMT20Printer.product_id = product_id;
+	public EpsonESCPOSPrinter(short product_id) throws SecurityException, UsbException {
+		EpsonESCPOSPrinter.product_id = product_id;
 		
 		// Search for printer, such as epson TM-T20
 		device = findUsb(UsbHostManager.getUsbServices().getRootUsbHub());
@@ -190,11 +193,11 @@ public class TMT20Printer {
 			pipe.open();
 			
 			int sent = pipe.syncSubmit(getByteArray(ENTER_USER_SETTINGS));
-			System.out.println(sent + " bytes sent to printer");
+			System.out.println(sent + " bytes sent to printer: Enter user setting mode command");
 			sent = pipe.syncSubmit(getByteArray(userSettings));
-			System.out.println(sent + " bytes sent to printer");
+			System.out.println(sent + " bytes sent to printer: user settings");
 			sent = pipe.syncSubmit(getByteArray(END_USER_SETTINGS));
-			System.out.println(sent + " bytes sent to printer");
+			System.out.println(sent + " bytes sent to printer: exit user setting mode command");
 			
 		} catch (UsbNotActiveException | UsbNotClaimedException
 				| UsbDisconnectedException | UsbException e) {
@@ -239,7 +242,7 @@ public class TMT20Printer {
 		try {
 			pipe.open();
 			int sent = pipe.syncSubmit(getByteArray(PRINT_NV_HEADER));
-			System.out.println(sent + " bytes sent to printer");
+			System.out.println(sent + " bytes sent to printer: Print header from non-volatile memory command");
 		} catch (UsbNotActiveException | UsbNotClaimedException
 				| UsbDisconnectedException | UsbException e) {
 			e.printStackTrace();
@@ -263,7 +266,7 @@ public class TMT20Printer {
 		try {
 			pipe.open();
 			int sent = pipe.syncSubmit(getByteArray(CUT));
-			System.out.println(sent + " bytes sent to printer");
+			System.out.println(sent + " bytes sent to printer: Cut paper command");
 		} catch (UsbNotActiveException | UsbNotClaimedException
 				| UsbDisconnectedException | UsbException e) {
 			e.printStackTrace();
@@ -282,7 +285,7 @@ public class TMT20Printer {
 		try {
 			pipe.open();
 			int sent = pipe.syncSubmit(text.getBytes());
-			System.out.println(sent + " bytes sent to printer");
+			System.out.println(sent + " bytes sent to printer: Print plain text");
 		} catch (UsbNotActiveException | UsbNotClaimedException
 				| UsbDisconnectedException | UsbException e) {
 			e.printStackTrace();
@@ -311,7 +314,7 @@ public class TMT20Printer {
 			// resize / rotate to fil the printer resolution
 			int width = imageGrayscale.getWidth();
 			int height = imageGrayscale.getHeight();
-			int TARGET_WIDTH = TMT20Printer.width;
+			int TARGET_WIDTH = EpsonESCPOSPrinter.width;
 			
 			if (width <= TARGET_WIDTH && height <= TARGET_WIDTH) { // image can fit in paper
 				if (width < height) {	// we have to rotate to save paper
@@ -399,15 +402,18 @@ public class TMT20Printer {
 //			System.out.println(sent + " bytes sent to printer");
 			
 			sent = pipe.syncSubmit(getCommand_DL_TO_PRINTER_BUF(width, height));
-			System.out.println(sent + " bytes sent to printer");
+			System.out.println(sent + " bytes sent to printer: Download data to printer buffer command");
 
 			sent = pipe.syncSubmit(Dithering.getDitheredMonochrom(SelfPi.ditheringMethod,
 					pixList, width, height, 
 					SelfPi.normalyseHistogram, SelfPi.gamma));
-			System.out.println(sent + " bytes sent to printer");
+			System.out.println(sent + " bytes sent to printer: Image Data bytes");
 
 			sent = pipe.syncSubmit(getByteArray(PRINT_PRINTER_BUFFER));
-			System.out.println(sent + " bytes sent to printer");
+			System.out.println(sent + " bytes sent to printer: Print the data from the printer buffer command");
+			
+			sent = pipe.syncSubmit( getByteArray(LINE_FEED) );
+			System.out.println(sent + " bytes sent to printer: Feed 1 line command");
 
 		} catch (UsbNotActiveException | UsbNotClaimedException
 				| UsbDisconnectedException | UsbException | IOException e) {
@@ -522,7 +528,7 @@ public class TMT20Printer {
 //	}
 	public static void main(String[] args) throws SecurityException, UsbException {
 		File imgFile = new File(SelfPi.souvenirImageFilefolder+"Lenna.png");
-		TMT20Printer p = new TMT20Printer((short) 3605);
+		EpsonESCPOSPrinter p = new EpsonESCPOSPrinter((short) 3605);
 		p.print(imgFile);
 		p.cut();
 		p.close();

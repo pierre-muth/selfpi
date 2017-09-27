@@ -257,6 +257,10 @@ public class EpsonESCPOSPrinter {
 	}
 	
 	public void cut(){
+		if (SelfPi.DEBUG) {
+			System.out.println("DEBUG: Printer: cut" );
+			return;
+		}
 		if (usbPrinting != null && usbPrinting.isAlive()) {
 			System.out.println("Still sending to printer");
 			return;
@@ -300,6 +304,10 @@ public class EpsonESCPOSPrinter {
 	}
 	
 	public void print(File imageFile){
+		if (SelfPi.DEBUG) {
+			System.out.println("DEBUG: Printer: print file "+imageFile.getAbsolutePath());
+			return;
+		}
 		UsbPipe pipe = usbEndpoint.getUsbPipe();
 		try {
 			// read the file

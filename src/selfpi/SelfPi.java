@@ -64,7 +64,7 @@ public class SelfPi implements KeyListener {
 	public static String PI4J_GPIO_ = "GPIO ";
 	public static boolean DEBUG = false; 
 	
-	public static SelfpiState selfpiState = SelfpiState.IDLE;
+	public static SelfpiState selfpiState = SelfpiState.IDLE_SOUVENIR;
 
 	private static int historySouvenirFileIndex = 0;
 	private static int historyPlayerFileIndex = 0;
@@ -90,10 +90,16 @@ public class SelfPi implements KeyListener {
 
 	private Facebook facebook;
 
-	private static final String WINNERKEY = "WINNER_FREQUENCY:";
-	private static final String FUNNYQUOTEKEY = "FUNNYQUOTE:";
-	private static final String WINNERIMAGESKEY = "WINNERIMAGES:";
-	private static final String FUNNYIMAGESKEY = "FUNNYIMAGES:";
+	private static final String RANDOM_WINNER_FREQKEY = "RANDOM_WINNER_FREQUENCY:";
+	private static final String RANDOM_SOUVENIR_FREQKEY = "RANDOM_SOUVENIR_FREQUENCY:";
+	
+	private static final String RANDOM_WINNER_IMAGESKEY = "RANDOM_WINNER_IMAGES:";
+	private static final String RANDOM_FUNNY_IMAGESKEY = "RANDOM_FUNNY_IMAGES:";
+	private static final String RANDOM_SOUVENIR_IMAGESKEY = "RANDOM_SOUVENIR_IMAGES:";
+	private static final String RANDOM_DSLR_IMAGESKEY = "RANDOM_DSLR_IMAGES:";
+
+	private static final String FUNNY_QUOTEKEY = "FUNNY_QUOTE:";
+
 	private static final String PRINTERPRODUCTIDKEY = "PRINTER_PRODUCT_ID:";
 	private static final String PRINTERDOTSKEY = "PRINTERDOTS:";
 	private static final String PRINTERSPEEDKEY = "PRINTERSPEED:";
@@ -112,18 +118,24 @@ public class SelfPi implements KeyListener {
 	private static final String GPIO_REDLEDKEY = "GPIO_REDLED:";
 	private static final String GPIO_WHITELEDKEY = "GPIO_WHITELED:";
 	
-	public static int winningTicketCounter = 0;
+	private static final String DEBUGKEY = "DEBUG:";
+	
+	public static int winnerTicketCounter = 0;
+	public static int souvenirTicketCounter = 0;
 
 	// default values
-	public static int frequencyTicketWin = 10;
+	public static int frequencyRandomTicketWin = 10;
+	public static int frequencyRandomTicketSouvenir = 10;
+	public static boolean useRandomWinnerImages = false; 
+	public static boolean useRandomFunnyImages = false;
+	public static boolean useRandomSouvenirImages = false;
+	public static boolean useRandomDSLRImages = false;
 	public static boolean printFunnyQuote = true;
 	public static short printerProductID = 0x0e15;  //
 	public static int printerdots = 576;
 	public static int printerSpeed = 2;
 	public static int printDensity = 65533;
 	public static boolean useFacebook = false;
-	public static boolean useFunnyImages = false;
-	public static boolean useWinnerImages = false; 
 	public static boolean guiVerticalOrientation = false;
 	public static int screenHeight = 1024;
 	public static File ticketHeader = new File(SETUP_PATH+"header.png");
@@ -147,183 +159,197 @@ public class SelfPi implements KeyListener {
 	private Thread printHistoryThread;
 
 	public SelfPi() {
-		if (!DEBUG) {
-			//read config file
-			String line;
-			try (BufferedReader br = new BufferedReader( new FileReader(CONFIG_FILE_PATH) )){
+		//read config file
+		String line;
+		try (BufferedReader br = new BufferedReader( new FileReader(CONFIG_FILE_PATH) )){
 
-				line = br.readLine();
-				if (line != null && line.contains(WINNERKEY)) {
-					frequencyTicketWin = Integer.parseInt( br.readLine() );
-				}
-				line = br.readLine();
-				if (line != null && line.contains(FUNNYQUOTEKEY)) {
-					printFunnyQuote = br.readLine().contains("true");
-				}
-				line = br.readLine();
-				if (line != null && line.contains(WINNERIMAGESKEY)) {
-					useWinnerImages = br.readLine().contains("true");
-				}
-				line = br.readLine();
-				if (line != null && line.contains(FUNNYIMAGESKEY)) {
-					useFunnyImages = br.readLine().contains("true");
-				}
-				line = br.readLine();
-				if (line != null && line.contains(PRINTERPRODUCTIDKEY)) {
-					printerProductID = Short.parseShort( br.readLine() );
-				}
-				line = br.readLine();
-				if (line != null && line.contains(PRINTERDOTSKEY)) {
-					printerdots = Integer.parseInt( br.readLine() );
-				}
-				line = br.readLine();
-				if (line != null && line.contains(PRINTERSPEEDKEY)) {
-					printerSpeed = Integer.parseInt( br.readLine() );
-				}
-				line = br.readLine();
-				if (line != null && line.contains(PRINTDENSITYKEY)) {
-					printDensity = Integer.parseInt( br.readLine() );
-					printDensity = printDensity < 4 ? (65532 + printDensity) : (printDensity - 4);
-				}
-				line = br.readLine();
-				if (line != null && line.contains(USE_FACEBOOK_KEY)) {
-					useFacebook = br.readLine().contains("true");
-				}
-				line = br.readLine();
-				if (line != null && line.contains(GUI_VERT_ORIENTATION_KEY)) {
-					guiVerticalOrientation = br.readLine().contains("true");
-				}
-				line = br.readLine();
-				if (line != null && line.contains(SCREEN_HEIGHT_KEY)) {
-					screenHeight = Integer.parseInt( br.readLine() );
-				}
-				line = br.readLine();
-				if (line != null && line.contains(COUNTDOWNLENGTHKEY)) {
-					countdownLength = Integer.parseInt( br.readLine() );
-					countdownLength = countdownLength < 4 ? 4 : countdownLength;
-				}
-				line = br.readLine();
-				if (line != null && line.contains(DITHERINGKEY)) {
-					ditheringMethod = Integer.parseInt( br.readLine() );
-				}
-				line = br.readLine();
-				if (line != null && line.contains(CAMEXPOSUREKEY)) {
-					cameraExposure = br.readLine();
-				}
-				line = br.readLine();
-				if (line != null && line.contains(CAMERACONTRASTKEY)) {
-					cameraContast = br.readLine();
-				}
-				line = br.readLine();
-				if (line != null && line.contains(NORMALISEHISTOGRAMKEY)) {
-					normalyseHistogram = br.readLine().contains("true");
-				}
-				line = br.readLine();
-				if (line != null && line.contains(GAMMACORRECTIONKEY)) {
-					gamma = Double.parseDouble( br.readLine() );
-				}
-				line = br.readLine();
-				if (line != null && line.contains(GPIO_REDBUTTONKEY)) {
-					gpio_red_button = br.readLine();
-				}
-				line = br.readLine();
-				if (line != null && line.contains(GPIO_WHITEBUTTONKEY)) {
-					gpio_white_button = br.readLine();
-				}
-				line = br.readLine();
-				if (line != null && line.contains(GPIO_REDLEDKEY)) {
-					gpio_red_led = br.readLine();
-				}
-				line = br.readLine();
-				if (line != null && line.contains(GPIO_WHITELEDKEY)) {
-					gpio_white_led = br.readLine();
-				}
-
-			} catch (IOException e) {
-				System.out.println("Error in config.txt, trying with default values");
-			};
-
-			// Build quotes list
-			sentences = new ArrayList<>();
-			try (BufferedReader br = new BufferedReader( new FileReader(QUOTE_SENTENCES_FILE_PATH) )){
-				do {
-					line = br.readLine();
-					if (line != null) sentences.add(line);
-				} while (line != null);
-			} catch (IOException e) {
-				System.out.println("Error in phrase.txt");
-			};
-
-
-			// build GUI
-			SwingUtilities.invokeLater(new Runnable() {
-				@Override
-				public void run() {
-					gui = new Gui(guiVerticalOrientation);
-				}
-			});
-
-			//read global counter
-			try (BufferedReader br = new BufferedReader( new FileReader(PICTURE_COUNTER_FILE_PATH))){
-				winningTicketCounter = Integer.parseInt( br.readLine() );
-			} catch (IOException e) {
-				System.out.println("Error in counter.txt");
-			};
-
-			// start Pinter
-			try {
-				printer = new EpsonESCPOSPrinter(printerProductID);
-			} catch (SecurityException | UsbException e) {
-				e.printStackTrace();
-				System.exit(1);
+			line = br.readLine();
+			if (line != null && line.contains(RANDOM_WINNER_FREQKEY)) {
+				frequencyRandomTicketWin = Integer.parseInt( br.readLine() );
+			}
+			line = br.readLine();
+			if (line != null && line.contains(RANDOM_SOUVENIR_FREQKEY)) {
+				frequencyRandomTicketSouvenir = Integer.parseInt( br.readLine() );
+			}
+			line = br.readLine();
+			if (line != null && line.contains(RANDOM_WINNER_IMAGESKEY)) {
+				useRandomWinnerImages = br.readLine().contains("true");
+			}
+			line = br.readLine();
+			if (line != null && line.contains(RANDOM_FUNNY_IMAGESKEY)) {
+				useRandomFunnyImages = br.readLine().contains("true");
+			}
+			line = br.readLine();
+			if (line != null && line.contains(RANDOM_SOUVENIR_IMAGESKEY)) {
+				useRandomSouvenirImages = br.readLine().contains("true");
+			}
+			line = br.readLine();
+			if (line != null && line.contains(RANDOM_DSLR_IMAGESKEY)) {
+				useRandomDSLRImages = br.readLine().contains("true");
+			}
+			line = br.readLine();
+			if (line != null && line.contains(FUNNY_QUOTEKEY)) {
+				printFunnyQuote = br.readLine().contains("true");
+			}
+			line = br.readLine();
+			if (line != null && line.contains(USE_FACEBOOK_KEY)) {
+				useFacebook = br.readLine().contains("true");
+			}
+			line = br.readLine();
+			if (line != null && line.contains(PRINTERPRODUCTIDKEY)) {
+				printerProductID = Short.parseShort( br.readLine() );
+			}
+			line = br.readLine();
+			if (line != null && line.contains(PRINTERDOTSKEY)) {
+				printerdots = Integer.parseInt( br.readLine() );
+			}
+			line = br.readLine();
+			if (line != null && line.contains(PRINTERSPEEDKEY)) {
+				printerSpeed = Integer.parseInt( br.readLine() );
+			}
+			line = br.readLine();
+			if (line != null && line.contains(PRINTDENSITYKEY)) {
+				printDensity = Integer.parseInt( br.readLine() );
+				printDensity = printDensity < 4 ? (65532 + printDensity) : (printDensity - 4);
+			}
+			line = br.readLine();
+			if (line != null && line.contains(GUI_VERT_ORIENTATION_KEY)) {
+				guiVerticalOrientation = br.readLine().contains("true");
+			}
+			line = br.readLine();
+			if (line != null && line.contains(SCREEN_HEIGHT_KEY)) {
+				screenHeight = Integer.parseInt( br.readLine() );
+			}
+			line = br.readLine();
+			if (line != null && line.contains(COUNTDOWNLENGTHKEY)) {
+				countdownLength = Integer.parseInt( br.readLine() );
+				countdownLength = countdownLength < 4 ? 4 : countdownLength;
+			}
+			line = br.readLine();
+			if (line != null && line.contains(DITHERINGKEY)) {
+				ditheringMethod = Integer.parseInt( br.readLine() );
+			}
+			line = br.readLine();
+			if (line != null && line.contains(CAMEXPOSUREKEY)) {
+				cameraExposure = br.readLine();
+			}
+			line = br.readLine();
+			if (line != null && line.contains(CAMERACONTRASTKEY)) {
+				cameraContast = br.readLine();
+			}
+			line = br.readLine();
+			if (line != null && line.contains(NORMALISEHISTOGRAMKEY)) {
+				normalyseHistogram = br.readLine().contains("true");
+			}
+			line = br.readLine();
+			if (line != null && line.contains(GAMMACORRECTIONKEY)) {
+				gamma = Double.parseDouble( br.readLine() );
+			}
+			line = br.readLine();
+			if (line != null && line.contains(GPIO_REDBUTTONKEY)) {
+				gpio_red_button = br.readLine();
+			}
+			line = br.readLine();
+			if (line != null && line.contains(GPIO_WHITEBUTTONKEY)) {
+				gpio_white_button = br.readLine();
+			}
+			line = br.readLine();
+			if (line != null && line.contains(GPIO_REDLEDKEY)) {
+				gpio_red_led = br.readLine();
+			}
+			line = br.readLine();
+			if (line != null && line.contains(GPIO_WHITELEDKEY)) {
+				gpio_white_led = br.readLine();
+			}
+			line = br.readLine();
+			if (line != null && line.contains(DEBUGKEY)) {
+				DEBUG = br.readLine().contains("true");
 			}
 
-			// Instanciate Facebook
-			if (useFacebook) {
-				try {
-					facebook = new Facebook();
-				} catch (Exception e) {
-					System.out.println("Error in Facebook setup");
-				}
+		} catch (IOException e) {
+			System.out.println("Error in config.txt, trying with default values");
+		};
+
+		// Build quotes list
+		sentences = new ArrayList<>();
+		try (BufferedReader br = new BufferedReader( new FileReader(QUOTE_SENTENCES_FILE_PATH) )){
+			do {
+				line = br.readLine();
+				if (line != null) sentences.add(line);
+			} while (line != null);
+		} catch (IOException e) {
+			System.out.println("Error in phrase.txt");
+		};
+
+
+		// build GUI
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				gui = new Gui(guiVerticalOrientation);
 			}
+		});
 
-			// GPIO Button and led setup
-			GpioController gpio;
-			GpioPinDigitalInput redButton;
-			GpioPinDigitalInput whiteButton;
-			gpio = GpioFactory.getInstance();
+		//read global counter
+		try (BufferedReader br = new BufferedReader( new FileReader(PICTURE_COUNTER_FILE_PATH))){
+			souvenirTicketCounter = Integer.parseInt( br.readLine() );
+		} catch (IOException e) {
+			System.out.println("Error in counter.txt");
+		};
 
-			if (gpio_red_button.contains(PI4J_GPIO_)) {
-//				redButton = gpio.provisionDigitalInputPin(RaspiPin.GPIO_04, PinPullResistance.PULL_UP);
-				redButton = gpio.provisionDigitalInputPin(RaspiPin.getPinByName(gpio_red_button), PinPullResistance.PULL_UP);
-				redButtonListener = new RedButtonListener();
-				redButton.addListener(redButtonListener);
-			}
-
-			if (gpio_white_button.contains(PI4J_GPIO_)) {
-				whiteButton = gpio.provisionDigitalInputPin(RaspiPin.getPinByName(gpio_white_button), PinPullResistance.PULL_UP);
-				whiteButtonListener = new WhiteButtonListener();
-				whiteButton.addListener(whiteButtonListener); 
-			}
-
-			if (gpio_white_led.contains(PI4J_GPIO_)) {
-				whiteButtonLed = gpio.provisionDigitalOutputPin(RaspiPin.getPinByName(gpio_white_led));
-				whiteButtonLed.high();
-			}
-
-			if (gpio_red_led.contains(PI4J_GPIO_)) {
-				GpioPinPwmOutput buttonLedPin = gpio.provisionPwmOutputPin(RaspiPin.getPinByName(gpio_red_led));
-				redButtonLed = new ButtonLed(buttonLedPin);
-				redButtonLed.startSoftBlink();
-			} else {
-				redButtonLed = new ButtonLed(null);
-			}
-
-			// Start Pi camera
-			picam = new PiCamera(printerdots, printerdots);
-			new Thread(picam).start();
-
+		// start Pinter
+		try {
+			printer = new EpsonESCPOSPrinter(printerProductID);
+		} catch (SecurityException | UsbException e) {
+			e.printStackTrace();
+			System.exit(1);
 		}
+
+		// Instanciate Facebook
+		if (useFacebook) {
+			try {
+				facebook = new Facebook();
+			} catch (Exception e) {
+				System.out.println("Error in Facebook setup");
+			}
+		}
+
+		// GPIO Button and led setup
+		GpioController gpio;
+		GpioPinDigitalInput redButton;
+		GpioPinDigitalInput whiteButton;
+		gpio = GpioFactory.getInstance();
+
+		if (gpio_red_button.contains(PI4J_GPIO_)) {
+			//				redButton = gpio.provisionDigitalInputPin(RaspiPin.GPIO_04, PinPullResistance.PULL_UP);
+			redButton = gpio.provisionDigitalInputPin(RaspiPin.getPinByName(gpio_red_button), PinPullResistance.PULL_UP);
+			redButtonListener = new RedButtonListener();
+			redButton.addListener(redButtonListener);
+		}
+
+		if (gpio_white_button.contains(PI4J_GPIO_)) {
+			whiteButton = gpio.provisionDigitalInputPin(RaspiPin.getPinByName(gpio_white_button), PinPullResistance.PULL_UP);
+			whiteButtonListener = new WhiteButtonListener();
+			whiteButton.addListener(whiteButtonListener); 
+		}
+
+		if (gpio_white_led.contains(PI4J_GPIO_)) {
+			whiteButtonLed = gpio.provisionDigitalOutputPin(RaspiPin.getPinByName(gpio_white_led));
+			whiteButtonLed.high();
+		}
+
+		if (gpio_red_led.contains(PI4J_GPIO_)) {
+			GpioPinPwmOutput buttonLedPin = gpio.provisionPwmOutputPin(RaspiPin.getPinByName(gpio_red_led));
+			redButtonLed = new ButtonLed(buttonLedPin);
+			redButtonLed.startSoftBlink();
+		} else {
+			redButtonLed = new ButtonLed(null);
+		}
+
+		// Start Pi camera
+		picam = new PiCamera(printerdots, printerdots);
+		new Thread(picam).start();
+
 	}
 
 	// keyboard listener
@@ -372,7 +398,7 @@ public class SelfPi implements KeyListener {
 		}
 		if (e.getKeyCode() == KeyEvent.VK_P && (
 				selfpiState == SelfpiState.HISTORIC_SOUVENIR ||
-				selfpiState == SelfpiState.HISTORIC_WINNER ||
+				selfpiState == SelfpiState.HISTORIC_PLAYERS ||
 				selfpiState == SelfpiState.HISTORIC_DSLR )){
 			if (printHistoryThread != null && printHistoryThread.isAlive()) return;
 			printHistoryThread = new Thread(new RunPrint6History());
@@ -402,7 +428,7 @@ public class SelfPi implements KeyListener {
 	protected void stateMachineTransition(SelfPiEvent event){
 
 		switch (selfpiState) {
-		case IDLE:
+		case IDLE_SOUVENIR:
 			switch (event) {
 			case RED_BUTTON:
 				selfpiState = SelfpiState.TAKING_PICT;
@@ -413,7 +439,7 @@ public class SelfPi implements KeyListener {
 				populateHistoricImages();
 				break;
 			case HISTORY_PLAYER_BUTTON:
-				selfpiState = SelfpiState.HISTORIC_WINNER;
+				selfpiState = SelfpiState.HISTORIC_PLAYERS;
 				populateHistoricImages();
 				break;
 			case HISTORY_DSLR_BUTTON:
@@ -425,7 +451,7 @@ public class SelfPi implements KeyListener {
 				launchImportDSLR();
 				break;
 			case RESET:
-				selfpiState = SelfpiState.IDLE;
+				selfpiState = SelfpiState.IDLE_SOUVENIR;
 				break;
 
 			default:
@@ -444,7 +470,7 @@ public class SelfPi implements KeyListener {
 			case WHITE_BUTTON:
 				break;
 			case RESET:
-				selfpiState = SelfpiState.IDLE;
+				selfpiState = SelfpiState.IDLE_SOUVENIR;
 				break;
 			default:
 				break;
@@ -458,7 +484,7 @@ public class SelfPi implements KeyListener {
 				waitForShare();
 				break;
 			case RESET:
-				selfpiState = SelfpiState.IDLE;
+				selfpiState = SelfpiState.IDLE_SOUVENIR;
 				break;
 			default:
 				break;
@@ -476,7 +502,7 @@ public class SelfPi implements KeyListener {
 				share();
 				break;
 			case RESET:
-				selfpiState = SelfpiState.IDLE;
+				selfpiState = SelfpiState.IDLE_SOUVENIR;
 				resetMode();
 				break;
 			default:
@@ -487,7 +513,7 @@ public class SelfPi implements KeyListener {
 		case SHARING:
 			switch (event) {
 			case RESET:
-				selfpiState = SelfpiState.IDLE;
+				selfpiState = SelfpiState.IDLE_SOUVENIR;
 				resetMode();
 				break;
 			case RED_BUTTON:
@@ -502,7 +528,7 @@ public class SelfPi implements KeyListener {
 		case RE_PRINTING:
 			switch (event) {
 			case RESET:
-				selfpiState = SelfpiState.IDLE;
+				selfpiState = SelfpiState.IDLE_SOUVENIR;
 				resetMode();
 				break;
 			case WHITE_BUTTON:
@@ -517,17 +543,17 @@ public class SelfPi implements KeyListener {
 		case HISTORIC_SOUVENIR:
 			switch (event) {
 			case RESET:
-				selfpiState = SelfpiState.IDLE;
+				selfpiState = SelfpiState.IDLE_SOUVENIR;
 				break;
 			default:
 				break;
 			}
 			break;
 
-		case HISTORIC_WINNER:
+		case HISTORIC_PLAYERS:
 			switch (event) {
 			case RESET:
-				selfpiState = SelfpiState.IDLE;
+				selfpiState = SelfpiState.IDLE_SOUVENIR;
 				break;
 			default:
 				break;
@@ -537,7 +563,7 @@ public class SelfPi implements KeyListener {
 		case HISTORIC_DSLR:
 			switch (event) {
 			case RESET:
-				selfpiState = SelfpiState.IDLE;
+				selfpiState = SelfpiState.IDLE_SOUVENIR;
 				break;
 			default:
 				break;
@@ -547,7 +573,7 @@ public class SelfPi implements KeyListener {
 		case IMPORT_DSLR:
 			switch (event) {
 			case RESET:
-				selfpiState = SelfpiState.IDLE;
+				selfpiState = SelfpiState.IDLE_SOUVENIR;
 				break;
 			default:
 				break;
@@ -582,7 +608,12 @@ public class SelfPi implements KeyListener {
 	}
 
 	private void share(){
+		if (!isWhiteLedON()) return;
 		setWhiteLedOFF();
+		if (DEBUG) {
+			System.out.println("DEBUG: Share to Facebook");
+			return;
+		}
 		sharingThread = new Thread(new RunShareToFacebook());
 		sharingThread.start();
 		setWhiteLedOFF();
@@ -591,17 +622,13 @@ public class SelfPi implements KeyListener {
 	private void rePrint(){
 		SelfPi.redButtonLed.startBlinking();
 		printer.print(lastSouvenirPictureFile);
-		if (printFunnyQuote) {
-			printer.print(getRandomQuote());
-		}
-		printer.print(ticketSouvenirFoot);
 		printer.cut();
 		printer.print(ticketHeader);
 		SelfPi.redButtonLed.startSoftBlink();
 	}
 
 	private void incrementHistoryFileIndex() {
-		if (selfpiState == SelfpiState.HISTORIC_WINNER) {
+		if (selfpiState == SelfpiState.HISTORIC_PLAYERS) {
 			File[] listOfFiles = historyFunnyDirectory.listFiles();
 			if (historyPlayerFileIndex+6 < listOfFiles.length){
 				historyPlayerFileIndex +=6;
@@ -622,7 +649,7 @@ public class SelfPi implements KeyListener {
 	}
 
 	private void decrementHistoryFileIndex() {
-		if (selfpiState == SelfpiState.HISTORIC_WINNER) {
+		if (selfpiState == SelfpiState.HISTORIC_PLAYERS) {
 			if (historyPlayerFileIndex-6 >=0 ) historyPlayerFileIndex-=6;
 		}
 		if (selfpiState == SelfpiState.HISTORIC_SOUVENIR) {
@@ -636,7 +663,7 @@ public class SelfPi implements KeyListener {
 	private void populateHistoricImages() {
 		int historyFileIndex;
 		File directory;
-		if (selfpiState == SelfpiState.HISTORIC_WINNER) {
+		if (selfpiState == SelfpiState.HISTORIC_PLAYERS) {
 			directory = historyFunnyDirectory;
 			historyFileIndex = historyPlayerFileIndex;
 		} else if (selfpiState == SelfpiState.HISTORIC_SOUVENIR) {
@@ -675,7 +702,7 @@ public class SelfPi implements KeyListener {
 	private void printHistory(int index) {
 		File folder;
 		int historyFileIndex;
-		if (selfpiState == SelfpiState.HISTORIC_WINNER) {
+		if (selfpiState == SelfpiState.HISTORIC_PLAYERS) {
 			folder = historyFunnyDirectory;
 			historyFileIndex = historyPlayerFileIndex;
 		} else if (selfpiState == SelfpiState.HISTORIC_SOUVENIR) {
@@ -712,15 +739,27 @@ public class SelfPi implements KeyListener {
 
 	}
 
+	public File chooseWinnerImage(){
+		File folder = new File(playerImageFilefolder);
+		return chooseRandomFileFromFolder(folder);
+	}
+	
 	public File chooseFunnyImage(){
 		File folder = new File(funnyImageFilefolder);
-		File[] listOfFiles = folder.listFiles();
-		int random = (int) (Math.random()*listOfFiles.length);
-		return listOfFiles[random];
+		return chooseRandomFileFromFolder(folder);
 	}
 
 	public File chooseRandomSouvenirImage(){
 		File folder = new File(SelfPi.souvenirImageFilefolder);
+		return chooseRandomFileFromFolder(folder);
+	}
+	
+	public File chooserRandomDSLRImage(){
+		File folder = new File(SelfPi.dslrImageFilefolder);
+		return chooseRandomFileFromFolder(folder);
+	}
+	
+	public File chooseRandomFileFromFolder(File folder){
 		File[] listOfFiles = folder.listFiles();
 		int random = (int) (Math.random()*listOfFiles.length);
 		return listOfFiles[random];
@@ -736,6 +775,10 @@ public class SelfPi implements KeyListener {
 		if (SelfPi.whiteButtonLed != null){
 			SelfPi.whiteButtonLed.low();
 		}
+	}
+	
+	public boolean isWhiteLedON(){
+		return whiteButtonLed.isLow();
 	}
 	
 	public void setWhiteLedOFF(){
@@ -845,7 +888,7 @@ public class SelfPi implements KeyListener {
 		private int historyFileIndex;
 		private File directory;
 		public RunPrint6History() {
-			if (selfpiState == SelfpiState.HISTORIC_WINNER) {
+			if (selfpiState == SelfpiState.HISTORIC_PLAYERS) {
 				this.directory = historyFunnyDirectory;
 				this.historyFileIndex = historyPlayerFileIndex;
 			}
@@ -905,12 +948,16 @@ public class SelfPi implements KeyListener {
 		@Override
 		public void run() {
 
-			if (winningTicketCounter%frequencyTicketWin == 0){
-				if ( (winningTicketCounter/frequencyTicketWin) %2 == 0 && SelfPi.useWinnerImages) {
+			if (souvenirTicketCounter%frequencyRandomTicketSouvenir == 0){
+				
+				if ( (souvenirTicketCounter/frequencyRandomTicketSouvenir) %3 == 0 && SelfPi.useRandomSouvenirImages) {
 					printer.print(chooseRandomSouvenirImage());
-				} else if (useFunnyImages) {
+				} else if ((souvenirTicketCounter/frequencyRandomTicketSouvenir) %3 == 1 && SelfPi.useRandomFunnyImages) {
 					printer.print(chooseFunnyImage());
+				} else if ((souvenirTicketCounter/frequencyRandomTicketSouvenir) %3 == 2 && SelfPi.useRandomDSLRImages) {
+					printer.print(chooserRandomDSLRImage());
 				}
+				
 			} else {
 				printer.print(lastSouvenirPictureFile);
 			}
@@ -919,7 +966,7 @@ public class SelfPi implements KeyListener {
 				printer.print(getRandomQuote());
 			}
 
-			if (winningTicketCounter%frequencyTicketWin == 0){
+			if (souvenirTicketCounter%frequencyRandomTicketSouvenir == 0){
 				printer.print(ticketWinnerFoot);
 			} else {
 				printer.print(ticketSouvenirFoot);
@@ -928,11 +975,11 @@ public class SelfPi implements KeyListener {
 			printer.cut();
 			printer.print(ticketHeader);
 
-			System.out.println("count: "+winningTicketCounter+", freq:"+frequencyTicketWin);
+			System.out.println("souvenir ticket count: "+souvenirTicketCounter);
 			// inc print counter
-			winningTicketCounter++;
+			souvenirTicketCounter++;
 			Path file = Paths.get(PICTURE_COUNTER_FILE_PATH);
-			String line = Integer.toString(winningTicketCounter);
+			String line = Integer.toString(souvenirTicketCounter);
 			List<String> lines = Arrays.asList(line);
 			try {
 				Files.write(file, lines);
@@ -942,6 +989,7 @@ public class SelfPi implements KeyListener {
 
 			// set button state
 			if (useFacebook) setWhiteLedON();
+			
 			SelfPi.redButtonLed.startSoftBlink();
 
 			SelfPi.this.stateMachineTransition(SelfPiEvent.END_PRINTING);

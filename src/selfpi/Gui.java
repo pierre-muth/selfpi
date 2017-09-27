@@ -78,11 +78,11 @@ public class Gui extends JPanel {
 			@Override
 			public void run() {
 				if (state == SelfpiState.HISTORIC_SOUVENIR ||
-						state == SelfpiState.HISTORIC_WINNER ||
+						state == SelfpiState.HISTORIC_PLAYERS ||
 						state == SelfpiState.HISTORIC_DSLR){
 					getCardLayout().show(Gui.this.getMainPanel(), CARD_HIST);
 				}
-				if (state == SelfpiState.IDLE) {
+				if (state == SelfpiState.IDLE_SOUVENIR) {
 					getCardLayout().show(Gui.this.getMainPanel(), CARD_IDLE);
 				}
 				if (state == SelfpiState.TAKING_PICT) {

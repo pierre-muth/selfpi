@@ -950,13 +950,22 @@ public class SelfPi implements KeyListener {
 
 			if (souvenirTicketCounter%frequencyRandomTicketSouvenir == 0){
 				
-				if ( (souvenirTicketCounter/frequencyRandomTicketSouvenir) %3 == 0 && SelfPi.useRandomSouvenirImages) {
-					printer.print(chooseRandomSouvenirImage());
-				} else if ((souvenirTicketCounter/frequencyRandomTicketSouvenir) %3 == 1 && SelfPi.useRandomFunnyImages) {
+				if (SelfPi.useRandomSouvenirImages && SelfPi.useRandomFunnyImages && SelfPi.useRandomDSLRImages){
+					if ( (souvenirTicketCounter/frequencyRandomTicketSouvenir) %3 == 0 ) {
+						printer.print(chooseRandomSouvenirImage());
+					} else if ((souvenirTicketCounter/frequencyRandomTicketSouvenir) %3 == 1 ) {
+						printer.print(chooseFunnyImage());
+					} else if ((souvenirTicketCounter/frequencyRandomTicketSouvenir) %3 == 2 ) {
+						printer.print(chooserRandomDSLRImage());
+					}
+				} else if ( !SelfPi.useRandomSouvenirImages && SelfPi.useRandomFunnyImages && !SelfPi.useRandomDSLRImages ){
 					printer.print(chooseFunnyImage());
-				} else if ((souvenirTicketCounter/frequencyRandomTicketSouvenir) %3 == 2 && SelfPi.useRandomDSLRImages) {
+				} else if ( SelfPi.useRandomSouvenirImages && !SelfPi.useRandomFunnyImages && !SelfPi.useRandomDSLRImages ){
+					printer.print(chooseRandomSouvenirImage());
+				} else if ( !SelfPi.useRandomSouvenirImages && !SelfPi.useRandomFunnyImages && SelfPi.useRandomDSLRImages ){
 					printer.print(chooserRandomDSLRImage());
 				}
+				
 				
 			} else {
 				printer.print(lastSouvenirPictureFile);

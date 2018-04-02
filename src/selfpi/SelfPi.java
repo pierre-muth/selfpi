@@ -86,7 +86,8 @@ public class SelfPi implements KeyListener {
 	private Thread pictureTakingThread;
 	private Thread printingThread;
 	private Thread waitForSharingThread;
-	private Thread sharingThread;
+	private Thread facebookSharingThread;
+	private Thread websiteSharingThread;
 
 	private Facebook facebook;
 
@@ -105,6 +106,7 @@ public class SelfPi implements KeyListener {
 	private static final String PRINTERSPEEDKEY = "PRINTERSPEED:";
 	private static final String PRINTDENSITYKEY = "PRINTDENSITY:";
 	private static final String USE_FACEBOOK_KEY = "USE_FACEBOOK:";
+	private static final String USE_WEBSHARE_KEY = "USE_WEBSHARE:";
 	private static final String GUI_VERT_ORIENTATION_KEY = "GUI_VERTICAL_ORIENTATION:";
 	private static final String SCREEN_HEIGHT_KEY = "SCREEN_HEIGHT:";
 	private static final String COUNTDOWNLENGTHKEY = "COUNTDOWNLENGTH:";
@@ -136,6 +138,7 @@ public class SelfPi implements KeyListener {
 	public static int printerSpeed = 2;
 	public static int printDensity = 65533;
 	public static boolean useFacebook = false;
+	public static boolean useWebShare = false;
 	public static boolean guiVerticalOrientation = false;
 	public static int screenHeight = 1024;
 	public static File ticketHeader = new File(SETUP_PATH+"header.png");
@@ -194,6 +197,10 @@ public class SelfPi implements KeyListener {
 			line = br.readLine();
 			if (line != null && line.contains(USE_FACEBOOK_KEY)) {
 				useFacebook = br.readLine().contains("true");
+			}
+			line = br.readLine();
+			if (line != null && line.contains(USE_WEBSHARE_KEY)) {
+				useWebShare = br.readLine().contains("true");
 			}
 			line = br.readLine();
 			if (line != null && line.contains(PRINTERPRODUCTIDKEY)) {
@@ -611,11 +618,18 @@ public class SelfPi implements KeyListener {
 		if (!isWhiteLedON()) return;
 		setWhiteLedOFF();
 		if (DEBUG) {
-			System.out.println("DEBUG: Share to Facebook");
+			System.out.println("DEBUG: Share to Facebook/site");
 			return;
 		}
-		sharingThread = new Thread(new RunShareToFacebook());
-		sharingThread.start();
+		if (useFacebook){
+			facebookSharingThread = new Thread(new RunShareToFacebook());
+			facebookSharingThread.start();
+		}
+		if (useWebShare){
+			websiteSharingThread = new Thread(new RunShareToWebsite());
+			websiteSharingThread.start();
+		}
+		
 		setWhiteLedOFF();
 	}
 
@@ -883,6 +897,18 @@ public class SelfPi implements KeyListener {
 			}
 		}
 	}
+	
+	private class RunShareToWebsite implements Runnable{
+
+		@Override
+		public void run() {
+			if ( UploadFTP.store(lastSouvenirPictureFile) ){
+				System.out.println("Upload with FTP: success");
+			} else {
+				System.out.println("Upload with FTP: failed");
+			}
+		}
+	}
 
 	private class RunPrint6History implements Runnable{
 		private int historyFileIndex;
@@ -997,7 +1023,7 @@ public class SelfPi implements KeyListener {
 			}				
 
 			// set button state
-			if (useFacebook) setWhiteLedON();
+			if (useFacebook || useWebShare) setWhiteLedON();
 			
 			SelfPi.redButtonLed.startSoftBlink();
 

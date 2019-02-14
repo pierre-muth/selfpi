@@ -7,8 +7,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Calendar;
-import java.util.Date;
 
 import com.restfb.BinaryAttachment;
 import com.restfb.DefaultFacebookClient;
@@ -17,29 +15,20 @@ import com.restfb.Parameter;
 import com.restfb.Version;
 import com.restfb.exception.FacebookException;
 import com.restfb.types.FacebookType;
-import com.restfb.types.Page;
-import com.restfb.types.User;
-import com.sun.xml.internal.bind.v2.schemagen.xmlschema.Appinfo;
 
-public class Facebook {
+public class FacebookEngine {
 	private String pageAccessToken = "";
-	private String pageID = "";
-	private String appID = "";
-	private String userID = "";
+	private String appSECRET = "";
 	private String albumID = "";
 	private String photoMsg = "";
 	private FacebookClient fbClient;
-	private User myuser = null;    //Store references to your user and page
-	private Page mypage = null;    //for later use. In this answer's context, these
 
 	private static final String FACETOKENKEY = "TOKEN:";
-	private static final String FACEAPPIDKEY = "APPID:";
-	private static final String FACEPROFILEIDKEY = "PROFILEID:";
-	private static final String FACEUSERIDKEY = "USERID:";
+	private static final String FACEAPPSECRETKEY = "APPSECRET:";
 	private static final String FACEALBUMIDKEY = "ALBUMID:";
 	private static final String FACEPHOTOMSGIDKEY = "PHOTOMSG:";
 
-	public Facebook() {
+	public FacebookEngine() {
 		//read config
 		String line;
 		try (BufferedReader br = new BufferedReader( new FileReader(SelfPi.FACEBOOK_CONFIG_FILE_PATH) )){
@@ -49,16 +38,8 @@ public class Facebook {
 				pageAccessToken = br.readLine();
 			}
 			line = br.readLine();
-			if (line != null && line.contains(FACEAPPIDKEY)) {
-				appID = br.readLine();
-			}
-			line = br.readLine();
-			if (line != null && line.contains(FACEPROFILEIDKEY)) {
-				pageID = br.readLine();
-			}
-			line = br.readLine();
-			if (line != null && line.contains(FACEUSERIDKEY)) {
-				userID = br.readLine();
+			if (line != null && line.contains(FACEAPPSECRETKEY)) {
+				appSECRET = br.readLine();
 			}
 			line = br.readLine();
 			if (line != null && line.contains(FACEALBUMIDKEY)) {
@@ -70,21 +51,18 @@ public class Facebook {
 			}
 
 		} catch (IOException e) {
-			System.out.println("Error in config.txt");
+			System.out.println("Error in facebook.txt");
 		};
 
 		try {
-			fbClient = new DefaultFacebookClient(pageAccessToken, Version.LATEST);
-			myuser = fbClient.fetchObject("me", User.class);
-			mypage = fbClient.fetchObject(pageID, Page.class);
-			System.out.println("Facebook initialized: USER: "+myuser+", PAGE: "+mypage);
-
+			fbClient = new DefaultFacebookClient(pageAccessToken, appSECRET, Version.VERSION_3_1);
 		} catch (FacebookException ex) {     //So that you can see what went wrong
 			ex.printStackTrace(System.err);  //in case you did anything incorrectly
 		}
 	}
 
-	public void publishApicture(File imageFile) throws IOException {
+	public String publishApicture(File imageFile) throws IOException {
+		String facebookUrl = "";
 		Path filePath = Paths.get(imageFile.getPath());
 		byte[] data = Files.readAllBytes(filePath);
 		String message = photoMsg +", "+ imageFile.getName();
@@ -95,5 +73,7 @@ public class Facebook {
 				Parameter.with("message", message ) );
 
 		System.out.println("Facebook published photo ID: " + publishPhotoResponse.getId());
+		facebookUrl = "facebook.com/"+publishPhotoResponse.getId();
+		return facebookUrl;
 	}
 }

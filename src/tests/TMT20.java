@@ -14,7 +14,6 @@ import javax.usb.UsbHostManager;
 import javax.usb.UsbHub;
 import javax.usb.UsbInterface;
 import javax.usb.UsbInterfacePolicy;
-import javax.usb.UsbIrp;
 import javax.usb.UsbNotActiveException;
 import javax.usb.UsbNotClaimedException;
 import javax.usb.UsbNotOpenException;

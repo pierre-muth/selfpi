@@ -2,25 +2,10 @@ package tests;
 
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
-import java.util.List;
 
-import javax.usb.UsbConfiguration;
-import javax.usb.UsbConst;
-import javax.usb.UsbControlIrp;
-import javax.usb.UsbDevice;
-import javax.usb.UsbDeviceDescriptor;
-import javax.usb.UsbDisconnectedException;
 import javax.usb.UsbEndpoint;
 import javax.usb.UsbException;
-import javax.usb.UsbHostManager;
-import javax.usb.UsbHub;
 import javax.usb.UsbInterface;
-import javax.usb.UsbInterfacePolicy;
-import javax.usb.UsbIrp;
-import javax.usb.UsbNotActiveException;
-import javax.usb.UsbNotClaimedException;
-import javax.usb.UsbNotOpenException;
-import javax.usb.UsbPipe;
 
 import org.usb4java.Context;
 import org.usb4java.Device;

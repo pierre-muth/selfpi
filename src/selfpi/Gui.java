@@ -30,11 +30,16 @@ public class Gui extends JPanel {
 	private static final String CARD_COUNT = "count";
 	private static final String CARD_SHARE = "share";
 	private static final String CARD_IMPORT = "import";
+	private static final String CARD_FACEBOOK_UP = "face_up";
+	private static final String CARD_TWEETING = "tweeting";
+	private static final String CARD_REPRINTING = "reprint";
 	
-	private static final String SCREEN_SHARE_HORIZONTAL = "share_screen_horizontal.png";
-	private static final String SCREEN_SHARE_VERTICAL = "share_screen_vertical.png";
-	private static final String SCREEN_IDLE_HORIZONTAL = "idle_screen_horizontal.png";
-	private static final String SCREEN_IDLE_VERTICAL = "idle_screen_vertical.png";
+	private static final String SCREEN_SHARE = "share_screen.png";
+	private static final String SCREEN_IDLE = "idle_screen.png";
+	
+	private static final String SCREEN_REPRINTING = "reprinting_screen.png";
+	private static final String SCREEN_FACEBOOK_UP = "facebook_upload_screen.png";
+	private static final String SCREEN_TWEETING = "tweeting_screen.png";
 		
 	private Thread countDownThread;
 	private Thread shareProgressThread;
@@ -96,6 +101,15 @@ public class Gui extends JPanel {
 				}
 				if (state == SelfpiState.IMPORT_DSLR) {
 					getCardLayout().show(Gui.this.getMainPanel(), CARD_IMPORT);
+				}
+				if (state == SelfpiState.RE_PRINTING) {
+					getCardLayout().show(Gui.this.getMainPanel(), CARD_REPRINTING);
+				}
+				if (state == SelfpiState.FACEBOOK_UPLOAD) {
+					getCardLayout().show(Gui.this.getMainPanel(), CARD_FACEBOOK_UP);
+				}
+				if (state == SelfpiState.TWEETING) {
+					getCardLayout().show(Gui.this.getMainPanel(), CARD_TWEETING);
 				}
 			}
 		});
@@ -187,25 +201,24 @@ public class Gui extends JPanel {
 			mainPanel.add(getSharePanel(), CARD_SHARE);
 			mainPanel.add(getCountLabel(), CARD_COUNT);
 			mainPanel.add(getImportTextPane(), CARD_IMPORT);
+			mainPanel.add(getReprintScreenLabel(), CARD_REPRINTING);
+			mainPanel.add(getFacebookUpScreenLabel(), CARD_FACEBOOK_UP);
+			mainPanel.add(getTweetingScreenLabel(), CARD_TWEETING);
 		}
 		return mainPanel;
 	}
 
-	private JLabel textLabel;
+	private JLabel idleLabel;
 	private JLabel getIdleLabel() {
-		if(textLabel == null) {
-			textLabel = new JLabel();
-			if (verticalOrientation) {
-				textLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+SCREEN_IDLE_VERTICAL));
-			} else {
-				textLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+SCREEN_IDLE_HORIZONTAL));
-			}
+		if(idleLabel == null) {
+			idleLabel = new JLabel();
+			idleLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+SCREEN_IDLE));
 //			textLabel = new JLabel(IDLE_TXT);
 //			textLabel.setHorizontalTextPosition(SwingConstants.CENTER);
 //			textLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 110));
 //			textLabel.setHorizontalAlignment(JLabel.CENTER);
 		}
-		return textLabel;
+		return idleLabel;
 	}
 	
 	private JLabel countLabel;
@@ -266,14 +279,38 @@ public class Gui extends JPanel {
 	private JLabel getShareScreenLabel() {
 		if (shareScreenLabel == null) {
 			shareScreenLabel = new JLabel();
-			if (verticalOrientation) {
-				shareScreenLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+SCREEN_SHARE_VERTICAL));
-			} else {
-				shareScreenLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+SCREEN_SHARE_HORIZONTAL));
-			}
+			shareScreenLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+SCREEN_SHARE));
 		}
 		return shareScreenLabel;
 	}
+	
+	private JLabel reprintScreenLabel;
+	private JLabel getReprintScreenLabel() {
+		if (reprintScreenLabel == null) {
+			reprintScreenLabel = new JLabel();
+			reprintScreenLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+SCREEN_REPRINTING));
+		}
+		return reprintScreenLabel;
+	}
+	
+	private JLabel facebookUpScreenLabel;
+	private JLabel getFacebookUpScreenLabel() {
+		if (facebookUpScreenLabel == null) {
+			facebookUpScreenLabel = new JLabel();
+			facebookUpScreenLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+SCREEN_FACEBOOK_UP));
+		}
+		return facebookUpScreenLabel;
+	}
+	
+	private JLabel tweetingScreenLabel;
+	private JLabel getTweetingScreenLabel() {
+		if (tweetingScreenLabel == null) {
+			tweetingScreenLabel = new JLabel();
+			tweetingScreenLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+SCREEN_TWEETING));
+		}
+		return tweetingScreenLabel;
+	}
+	
 
 	private JPanel historyPanel;
 	private JPanel getHistoryPanel() {
@@ -330,9 +367,10 @@ public class Gui extends JPanel {
 	}
 
 	private class CountDown implements Runnable {
-		
+		 
 		@Override
 		public void run() {
+			// count down
 			for (double counter = SelfPi.countdownLength; counter >= 0; counter -= 0.1) {
 				final String count = "<html><center>"+formatter.format(counter);
 				
@@ -345,7 +383,25 @@ public class Gui extends JPanel {
 				
 				try { Thread.sleep(100); } catch (InterruptedException e) {}
 			}
-			getCountLabel().setText("0.0");
+
+			// processing
+			for (double counter = SelfPi.countdownLength; counter >= 0; counter -= 1) {
+				String dots = " ";
+				if (counter%4 == 0) dots = ".";
+				if (counter%4 == 1) dots = "...";
+				if (counter%4 == 2) dots = ".....";
+				if (counter%4 == 3) dots = ".......";
+				
+				final String count = dots;
+				SwingUtilities.invokeLater(new Runnable() {
+					@Override
+					public void run() {
+						getCountLabel().setText(count);
+					}
+				});
+				
+				try { Thread.sleep(500); } catch (InterruptedException e) {}
+			}
 		}
 	}
 	

@@ -110,7 +110,7 @@ public class EpsonESCPOSPrinter {
 		device = findUsb(UsbHostManager.getUsbServices().getRootUsbHub());
 		if (device == null) {
 			System.err.println("Printer: vendor="+VENDOR_ID+", product="+product_id+" not found :(");
-			System.exit(1);
+			if (!SelfPi.DEBUG) System.exit(1);
 			return;
 		}
 
@@ -140,7 +140,7 @@ public class EpsonESCPOSPrinter {
 		if (device == null) {
 			System.err.println("Printer: vendor="+VENDOR_ID+", product="+product_id+" not found :(");
 			System.exit(1);
-			return;
+			return; 
 		}
 
 		// Claim the interface
@@ -166,6 +166,7 @@ public class EpsonESCPOSPrinter {
 	}
 
 	public void close() {
+		if (usbInterface == null) return;
 		try {
 			System.out.println("Releasing usb printer");
 			usbInterface.release();
@@ -303,16 +304,13 @@ public class EpsonESCPOSPrinter {
 		}
 	}
 	
-	public void print(File imageFile){
+	public void print(BufferedImage image){
 		if (SelfPi.DEBUG) {
-			System.out.println("DEBUG: Printer: print file "+imageFile.getAbsolutePath());
+			System.out.println("DEBUG: Printer: print BufferedImage.");
 			return;
 		}
 		UsbPipe pipe = usbEndpoint.getUsbPipe();
 		try {
-			// read the file
-			BufferedImage image = ImageIO.read(imageFile);
-			
 			// convert to grayscale
 			BufferedImage imageGrayscale = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
 			Graphics2D g = imageGrayscale.createGraphics();
@@ -424,7 +422,7 @@ public class EpsonESCPOSPrinter {
 			System.out.println(sent + " bytes sent to printer: Feed 1 line command");
 
 		} catch (UsbNotActiveException | UsbNotClaimedException
-				| UsbDisconnectedException | UsbException | IOException e) {
+				| UsbDisconnectedException | UsbException e) {
 			e.printStackTrace();
 		} finally {
 			try {
@@ -434,6 +432,21 @@ public class EpsonESCPOSPrinter {
 				e.printStackTrace();
 			}
 		}
+	}
+	
+	public void print(File imageFile){
+		if (SelfPi.DEBUG) {
+			System.out.println("DEBUG: Printer: print file "+imageFile.getAbsolutePath());
+			return;
+		}
+		try {
+			// read the file
+			BufferedImage image = ImageIO.read(imageFile);
+			print(image);
+
+		} catch (IOException e) {
+			e.printStackTrace();
+		} 
 	}
 	
 	private byte[] getCommand_DL_TO_PRINTER_BUF(int width, int height) {

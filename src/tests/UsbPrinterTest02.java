@@ -1,18 +1,9 @@
 package tests;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.Date;
-
-import javax.imageio.stream.FileImageInputStream;
 
 public class UsbPrinterTest02 {
 	private static final int[] TEST = {'T', 'e', 's', 't', };

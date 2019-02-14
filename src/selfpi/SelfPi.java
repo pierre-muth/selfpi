@@ -7,7 +7,6 @@ package selfpi;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
-import java.awt.image.DataBufferByte;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -43,6 +42,8 @@ import com.pi4j.io.gpio.RaspiPin;
 import com.pi4j.io.gpio.event.GpioPinDigitalStateChangeEvent;
 import com.pi4j.io.gpio.event.GpioPinListenerDigital;
 
+import io.nayuki.qrcodegen.QrCode;
+
 public class SelfPi implements KeyListener {
 	public static final String ROOTPATH = "/home/pi/selfpi";
 	public static final String SETUP_PATH = ROOTPATH+"/setup/";
@@ -50,6 +51,7 @@ public class SelfPi implements KeyListener {
 	public static final String PICTURE_COUNTER_FILE_PATH = SETUP_PATH+"counter.txt";
 	public static final String QUOTE_SENTENCES_FILE_PATH = SETUP_PATH+"phrase.txt";
 	public static final String FACEBOOK_CONFIG_FILE_PATH = SETUP_PATH+"facebook.txt";
+	public static final String TWITTER_CONFIG_FILE_PATH = SETUP_PATH+"twitter.txt";
 	public static final String souvenirImageFilefolder = ROOTPATH+"/souvenir/";
 	public static final String playerImageFilefolder = ROOTPATH+"/player/";
 	public static final String funnyImageFilefolder = ROOTPATH+"/funny/";
@@ -76,20 +78,24 @@ public class SelfPi implements KeyListener {
 	private static File historyDSLRDirectory = new File(SelfPi.dslrImageFilefolder);
 
 
-	private static PiCamera picam;
+	private static PiCamera3 picam;
 	private static EpsonESCPOSPrinter printer;
 	private static ButtonLed redButtonLed;
-	private static GpioPinDigitalOutput whiteButtonLed;
-	private static WhiteButtonListener whiteButtonListener;
+	private static GpioPinDigitalOutput facebookButtonLed;
+	private static GpioPinDigitalOutput twitterButtonLed;
+	private static FacebookButtonListener facebookButtonListener;
+	private static TwitterButtonListener twitterButtonListener;
 	private static RedButtonListener redButtonListener;
 
 	private Thread pictureTakingThread;
 	private Thread printingThread;
 	private Thread waitForSharingThread;
 	private Thread facebookSharingThread;
+	private Thread twitterSharingThread;
 	private Thread websiteSharingThread;
 
-	private Facebook facebook;
+	private FacebookEngine facebook;
+	private TwitterEngine twitter;
 
 	private static final String RANDOM_WINNER_FREQKEY = "RANDOM_WINNER_FREQUENCY:";
 	private static final String RANDOM_SOUVENIR_FREQKEY = "RANDOM_SOUVENIR_FREQUENCY:";
@@ -106,6 +112,7 @@ public class SelfPi implements KeyListener {
 	private static final String PRINTERSPEEDKEY = "PRINTERSPEED:";
 	private static final String PRINTDENSITYKEY = "PRINTDENSITY:";
 	private static final String USE_FACEBOOK_KEY = "USE_FACEBOOK:";
+	private static final String USE_TWITTER_KEY = "USE_TWITTER:";
 	private static final String USE_WEBSHARE_KEY = "USE_WEBSHARE:";
 	private static final String GUI_VERT_ORIENTATION_KEY = "GUI_VERTICAL_ORIENTATION:";
 	private static final String SCREEN_HEIGHT_KEY = "SCREEN_HEIGHT:";
@@ -116,9 +123,11 @@ public class SelfPi implements KeyListener {
 	private static final String NORMALISEHISTOGRAMKEY = "NORMALISE_HISTOGRAM:";
 	private static final String GAMMACORRECTIONKEY = "GAMMA_CORRECTION:";
 	private static final String GPIO_REDBUTTONKEY = "GPIO_REDBUTTON:";
-	private static final String GPIO_WHITEBUTTONKEY = "GPIO_WHITEBUTTON:";
+	private static final String GPIO_FACEBOOKBUTTONKEY = "GPIO_FACEBOOKBUTTON:";
+	private static final String GPIO_TWITTERBUTTONKEY = "GPIO_TWITTERBUTTON:";
 	private static final String GPIO_REDLEDKEY = "GPIO_REDLED:";
-	private static final String GPIO_WHITELEDKEY = "GPIO_WHITELED:";
+	private static final String GPIO_FACEBOOKLEDKEY = "GPIO_FACEBOOKLED:";
+	private static final String GPIO_TWITTERLEDKEY = "GPIO_TWITTERLED:";
 	
 	private static final String DEBUGKEY = "DEBUG:";
 	
@@ -138,6 +147,7 @@ public class SelfPi implements KeyListener {
 	public static int printerSpeed = 2;
 	public static int printDensity = 65533;
 	public static boolean useFacebook = false;
+	public static boolean useTwitter = false;
 	public static boolean useWebShare = false;
 	public static boolean guiVerticalOrientation = false;
 	public static int screenHeight = 1024;
@@ -151,12 +161,15 @@ public class SelfPi implements KeyListener {
 	public static boolean normalyseHistogram = true;
 	public static double gamma = 1.0; 
 	public static String gpio_red_button = "GPIO 4";
-	public static String gpio_white_button = "GPIO 5";
+	public static String gpio_facebook_button = "GPIO 5";
+	public static String gpio_twitter_button = "GPIO 7";
 	public static String gpio_red_led = "GPIO 1";
-	public static String gpio_white_led = "GPIO 6";
+	public static String gpio_facebook_led = "GPIO 6";
+	public static String gpio_twitter_led = "GPIO 8";
 	
 	private Gui gui;
 	private File lastSouvenirPictureFile;
+	private File lastSouvenirAnimationFile;
 	private ArrayList<String> sentences;
 
 	private Thread printHistoryThread;
@@ -197,6 +210,10 @@ public class SelfPi implements KeyListener {
 			line = br.readLine();
 			if (line != null && line.contains(USE_FACEBOOK_KEY)) {
 				useFacebook = br.readLine().contains("true");
+			}
+			line = br.readLine();
+			if (line != null && line.contains(USE_TWITTER_KEY)) {
+				useTwitter = br.readLine().contains("true");
 			}
 			line = br.readLine();
 			if (line != null && line.contains(USE_WEBSHARE_KEY)) {
@@ -257,16 +274,24 @@ public class SelfPi implements KeyListener {
 				gpio_red_button = br.readLine();
 			}
 			line = br.readLine();
-			if (line != null && line.contains(GPIO_WHITEBUTTONKEY)) {
-				gpio_white_button = br.readLine();
+			if (line != null && line.contains(GPIO_FACEBOOKBUTTONKEY)) {
+				gpio_facebook_button = br.readLine();
+			}
+			line = br.readLine();
+			if (line != null && line.contains(GPIO_TWITTERBUTTONKEY)) {
+				gpio_twitter_button = br.readLine();
 			}
 			line = br.readLine();
 			if (line != null && line.contains(GPIO_REDLEDKEY)) {
 				gpio_red_led = br.readLine();
 			}
 			line = br.readLine();
-			if (line != null && line.contains(GPIO_WHITELEDKEY)) {
-				gpio_white_led = br.readLine();
+			if (line != null && line.contains(GPIO_FACEBOOKLEDKEY)) {
+				gpio_facebook_led = br.readLine();
+			}
+			line = br.readLine();
+			if (line != null && line.contains(GPIO_TWITTERLEDKEY)) {
+				gpio_twitter_led = br.readLine();
 			}
 			line = br.readLine();
 			if (line != null && line.contains(DEBUGKEY)) {
@@ -309,15 +334,24 @@ public class SelfPi implements KeyListener {
 			printer = new EpsonESCPOSPrinter(printerProductID);
 		} catch (SecurityException | UsbException e) {
 			e.printStackTrace();
-			System.exit(1);
+			if (!DEBUG) System.exit(1);
 		}
 
 		// Instanciate Facebook
 		if (useFacebook) {
 			try {
-				facebook = new Facebook();
+				facebook = new FacebookEngine();
 			} catch (Exception e) {
 				System.out.println("Error in Facebook setup");
+			}
+		}
+		
+		// Instanciate Twitter
+		if (useTwitter) {
+			try {
+				twitter = new TwitterEngine();
+			} catch (Exception e) {
+				System.out.println("Error in Twitter setup");
 			}
 		}
 
@@ -334,15 +368,15 @@ public class SelfPi implements KeyListener {
 			redButton.addListener(redButtonListener);
 		}
 
-		if (gpio_white_button.contains(PI4J_GPIO_)) {
-			whiteButton = gpio.provisionDigitalInputPin(RaspiPin.getPinByName(gpio_white_button), PinPullResistance.PULL_UP);
-			whiteButtonListener = new WhiteButtonListener();
-			whiteButton.addListener(whiteButtonListener); 
+		if (gpio_facebook_button.contains(PI4J_GPIO_)) {
+			whiteButton = gpio.provisionDigitalInputPin(RaspiPin.getPinByName(gpio_facebook_button), PinPullResistance.PULL_UP);
+			facebookButtonListener = new FacebookButtonListener();
+			whiteButton.addListener(facebookButtonListener); 
 		}
 
-		if (gpio_white_led.contains(PI4J_GPIO_)) {
-			whiteButtonLed = gpio.provisionDigitalOutputPin(RaspiPin.getPinByName(gpio_white_led));
-			whiteButtonLed.high();
+		if (gpio_facebook_led.contains(PI4J_GPIO_)) {
+			facebookButtonLed = gpio.provisionDigitalOutputPin(RaspiPin.getPinByName(gpio_facebook_led));
+			facebookButtonLed.high();
 		}
 
 		if (gpio_red_led.contains(PI4J_GPIO_)) {
@@ -354,7 +388,7 @@ public class SelfPi implements KeyListener {
 		}
 
 		// Start Pi camera
-		picam = new PiCamera(printerdots, printerdots);
+		picam = new PiCamera3(printerdots, printerdots);
 		new Thread(picam).start();
 
 	}
@@ -362,6 +396,9 @@ public class SelfPi implements KeyListener {
 	// keyboard listener
 	@Override
 	public void keyPressed(KeyEvent e) {
+		if (DEBUG) {
+			System.out.println("key "+e.getKeyCode()+" pressed !");
+		}
 		if (e.getKeyCode() == KeyEvent.VK_S){
 			stateMachineTransition(SelfPiEvent.HISTORY_SOUVERNIR_BUTTON);
 		}
@@ -414,8 +451,13 @@ public class SelfPi implements KeyListener {
 		if (e.getKeyCode() == KeyEvent.VK_SPACE || 
 				e.getKeyCode() == KeyEvent.VK_NUMPAD0 ||
 				e.getKeyCode() == KeyEvent.VK_0){
-			System.out.println(e.getKeyCode()+" pressed !");
 			stateMachineTransition(SelfPiEvent.RED_BUTTON);
+		}
+		if (e.getKeyCode() == KeyEvent.VK_F){
+			stateMachineTransition(SelfPiEvent.FACEBOOK_BUTTON);
+		}
+		if (e.getKeyCode() == KeyEvent.VK_T){
+			stateMachineTransition(SelfPiEvent.TWITTER_BUTTON);
 		}
 	}
 
@@ -441,6 +483,12 @@ public class SelfPi implements KeyListener {
 				selfpiState = SelfpiState.TAKING_PICT;
 				takeApicture();
 				break;
+			case FACEBOOK_BUTTON:
+				cameraTimeScanMode();
+				break;
+			case TWITTER_BUTTON:
+				cameraTimeScanMode();
+				break;
 			case HISTORY_SOUVERNIR_BUTTON:
 				selfpiState = SelfpiState.HISTORIC_SOUVENIR;
 				populateHistoricImages();
@@ -457,10 +505,6 @@ public class SelfPi implements KeyListener {
 				selfpiState = SelfpiState.IMPORT_DSLR;
 				launchImportDSLR();
 				break;
-			case RESET:
-				selfpiState = SelfpiState.IDLE_SOUVENIR;
-				break;
-
 			default:
 				break;
 			}
@@ -471,13 +515,6 @@ public class SelfPi implements KeyListener {
 			case PRINT:
 				selfpiState = SelfpiState.PRINTING;
 				print();
-				break;
-			case RED_BUTTON:
-				break;
-			case WHITE_BUTTON:
-				break;
-			case RESET:
-				selfpiState = SelfpiState.IDLE_SOUVENIR;
 				break;
 			default:
 				break;
@@ -490,9 +527,6 @@ public class SelfPi implements KeyListener {
 				selfpiState = SelfpiState.WAIT_FOR_SHARE;
 				waitForShare();
 				break;
-			case RESET:
-				selfpiState = SelfpiState.IDLE_SOUVENIR;
-				break;
 			default:
 				break;
 			}
@@ -504,28 +538,17 @@ public class SelfPi implements KeyListener {
 				selfpiState = SelfpiState.RE_PRINTING;
 				rePrint();
 				break;
-			case WHITE_BUTTON:
-				selfpiState = SelfpiState.SHARING;
-				share();
+			case FACEBOOK_BUTTON:
+				selfpiState = SelfpiState.FACEBOOK_UPLOAD;
+				facebookShare();
 				break;
-			case RESET:
+			case TWITTER_BUTTON:
+				selfpiState = SelfpiState.TWEETING;
+				twitterShare();
+				break;
+			case END_SHARING:
 				selfpiState = SelfpiState.IDLE_SOUVENIR;
 				resetMode();
-				break;
-			default:
-				break;
-			}
-			break;
-
-		case SHARING:
-			switch (event) {
-			case RESET:
-				selfpiState = SelfpiState.IDLE_SOUVENIR;
-				resetMode();
-				break;
-			case RED_BUTTON:
-				selfpiState = SelfpiState.RE_PRINTING;
-				rePrint();
 				break;
 			default:
 				break;
@@ -538,9 +561,27 @@ public class SelfPi implements KeyListener {
 				selfpiState = SelfpiState.IDLE_SOUVENIR;
 				resetMode();
 				break;
-			case WHITE_BUTTON:
-				selfpiState = SelfpiState.SHARING;
-				share();
+			default:
+				break;
+			}
+			break;
+			
+		case FACEBOOK_UPLOAD:
+			switch (event) {
+			case RESET:
+				selfpiState = SelfpiState.IDLE_SOUVENIR;
+				resetMode();
+				break;
+			default:
+				break;
+			}
+			break;
+
+		case TWEETING:
+			switch (event) {
+			case RESET:
+				selfpiState = SelfpiState.IDLE_SOUVENIR;
+				resetMode();
 				break;
 			default:
 				break;
@@ -614,23 +655,35 @@ public class SelfPi implements KeyListener {
 		waitForSharingThread.start(); 
 	}
 
-	private void share(){
-		if (!isWhiteLedON()) return;
-		setWhiteLedOFF();
+	private void facebookShare(){
+		setFacebookLedOFF();
+		setTwitterLedOFF();
 		if (DEBUG) {
-			System.out.println("DEBUG: Share to Facebook/site");
-			return;
+			System.out.println("DEBUG: Share to Facebook");
 		}
 		if (useFacebook){
 			facebookSharingThread = new Thread(new RunShareToFacebook());
 			facebookSharingThread.start();
 		}
-		if (useWebShare){
-			websiteSharingThread = new Thread(new RunShareToWebsite());
-			websiteSharingThread.start();
+	}
+	
+	private void twitterShare(){
+		setFacebookLedOFF();
+		setTwitterLedOFF();
+		
+		if (DEBUG) {
+			System.out.println("DEBUG: Share to twitter: "+useTwitter);
 		}
 		
-		setWhiteLedOFF();
+		if (useTwitter){
+			twitterSharingThread = new Thread(new RunShareToTwitter());
+			twitterSharingThread.start();
+		}
+		
+	}
+	
+	private void cameraTimeScanMode() {
+		picam.timeScanSwitch();
 	}
 
 	private void rePrint(){
@@ -750,7 +803,8 @@ public class SelfPi implements KeyListener {
 
 	private void resetMode(){
 		SelfPi.redButtonLed.startSoftBlink();
-
+		setFacebookLedOFF();
+		setTwitterLedOFF();
 	}
 
 	public File chooseWinnerImage(){
@@ -785,19 +839,35 @@ public class SelfPi implements KeyListener {
 		return sentence;
 	}
 	
-	public void setWhiteLedON(){
-		if (SelfPi.whiteButtonLed != null){
-			SelfPi.whiteButtonLed.low();
+	public void setFacebookLedON(){
+		if (SelfPi.facebookButtonLed != null){
+			SelfPi.facebookButtonLed.low();
 		}
 	}
 	
-	public boolean isWhiteLedON(){
-		return whiteButtonLed.isLow();
+	public boolean isFacebookLedON(){
+		return facebookButtonLed.isLow();
 	}
 	
-	public void setWhiteLedOFF(){
-		if (SelfPi.whiteButtonLed != null){
-			SelfPi.whiteButtonLed.high();
+	public void setFacebookLedOFF(){
+		if (SelfPi.facebookButtonLed != null){
+			SelfPi.facebookButtonLed.high();
+		}
+	}
+	
+	public void setTwitterLedON(){
+		if (SelfPi.twitterButtonLed != null){
+			SelfPi.twitterButtonLed.low();
+		}
+	}
+	
+	public boolean isTwitterLedON(){
+		return twitterButtonLed.isLow();
+	}
+	
+	public void setTwitterLedOFF(){
+		if (SelfPi.twitterButtonLed != null){
+			SelfPi.twitterButtonLed.high();
 		}
 	}
 
@@ -856,10 +926,10 @@ public class SelfPi implements KeyListener {
 		}
 	} 
 
-	class WhiteButtonListener implements GpioPinListenerDigital {
+	class FacebookButtonListener implements GpioPinListenerDigital {
 		private long lastTime;
 
-		public WhiteButtonListener() {
+		public FacebookButtonListener() {
 			lastTime = System.currentTimeMillis();
 		}
 
@@ -878,9 +948,37 @@ public class SelfPi implements KeyListener {
 			if ( currentTime - lastTime < 500 ) return; // reject if less than 500 ms
 			lastTime = currentTime;
 
-			System.out.println("White Button pressed !");
+			System.out.println("Facebook Button pressed !");
 
-			stateMachineTransition(SelfPiEvent.WHITE_BUTTON);
+			stateMachineTransition(SelfPiEvent.FACEBOOK_BUTTON);
+		}
+	}
+	
+	class TwitterButtonListener implements GpioPinListenerDigital {
+		private long lastTime;
+
+		public TwitterButtonListener() {
+			lastTime = System.currentTimeMillis();
+		}
+
+		@Override
+		public void handleGpioPinDigitalStateChangeEvent(GpioPinDigitalStateChangeEvent event) {
+			if (event.getState().isHigh()) return;
+			handle();
+		}
+
+		public void doPress() {
+			handle();
+		}
+
+		private void handle() {
+			long currentTime = System.currentTimeMillis();
+			if ( currentTime - lastTime < 500 ) return; // reject if less than 500 ms
+			lastTime = currentTime;
+
+			System.out.println("Twitter Button pressed !");
+
+			stateMachineTransition(SelfPiEvent.TWITTER_BUTTON);
 		}
 	}
 
@@ -888,12 +986,79 @@ public class SelfPi implements KeyListener {
 
 		@Override
 		public void run() {
+			setFacebookLedOFF();
+			setTwitterLedOFF();
+			SelfPi.redButtonLed.startSoftBlink();
+
 			if (facebook != null) {
 				try {
-					facebook.publishApicture(lastSouvenirPictureFile);
+					String facebookURL = facebook.publishApicture(lastSouvenirPictureFile);
+					//print a ticket with QRcode
+					System.out.println("facebookURL: "+facebookURL);
+					
+					QrCode qr0 = QrCode.encodeText(facebookURL, QrCode.Ecc.LOW);
+					BufferedImage img = qr0.toImage(1, 6);
+					printer.print(img);
+					printer.print("Find your picture on Facebook: "+facebookURL+" !");
+					printer.cut();
+					printer.print(ticketHeader);
+					
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
+				
+				// end
+				SelfPi.this.stateMachineTransition(SelfPiEvent.RESET);
+				
+			} else {
+				System.out.println("facebook is null");
+			}
+		}
+	}
+	
+	private class RunShareToTwitter implements Runnable{
+		
+
+		@Override
+		public void run() {
+			setFacebookLedOFF();
+			setTwitterLedOFF();
+			SelfPi.redButtonLed.startSoftBlink();
+			
+			if (twitter != null) {
+				try {
+					String tweetURL;
+					
+					// Ask to compute the last animation as a gif file
+					String numberFileName = Integer.toString( (int) (new Date().getTime() /1000) );
+					lastSouvenirAnimationFile = new File(souvenirImageFilefolder+numberFileName+".gif");
+					picam.saveLastAnimationToFile(lastSouvenirAnimationFile);
+					
+					if (DEBUG) System.out.println("Twitter: saveLastAnimationToFile = "+lastSouvenirAnimationFile.getAbsolutePath());
+					
+					// publish
+					tweetURL = twitter.publishApicture(lastSouvenirAnimationFile);
+					
+					//print a ticket with QRcode
+					System.out.println("tweetURL: "+tweetURL);
+					
+					QrCode qr0 = QrCode.encodeText(tweetURL, QrCode.Ecc.LOW);
+					BufferedImage img = qr0.toImage(1, 6);
+					printer.print(img);
+					printer.print("Find your animated gif on Twitter: "+tweetURL+" !");
+					printer.cut();
+					printer.print(ticketHeader);
+					
+					
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				
+				// end
+				SelfPi.this.stateMachineTransition(SelfPiEvent.RESET);
+				
+			} else {
+				System.out.println("twitter is null");
 			}
 		}
 	}
@@ -907,6 +1072,8 @@ public class SelfPi implements KeyListener {
 			} else {
 				System.out.println("Upload with FTP: failed");
 			}
+			// end
+			SelfPi.this.stateMachineTransition(SelfPiEvent.RESET);
 		}
 	}
 
@@ -956,16 +1123,19 @@ public class SelfPi implements KeyListener {
 	private class RunWaitForSharing implements Runnable {
 		@Override
 		public void run() {
-
-			// wait for printing
+			
+			if (useFacebook) setFacebookLedON();
+			if(useTwitter) setTwitterLedON();
+			
+			// wait for sharing
 			try { Thread.sleep(10000); } catch (InterruptedException e) {}
 
 			// end
-			setWhiteLedOFF();
-			
+			setFacebookLedOFF();
+			setTwitterLedOFF();
 			SelfPi.redButtonLed.startSoftBlink();
 
-			SelfPi.this.stateMachineTransition(SelfPiEvent.RESET);
+			SelfPi.this.stateMachineTransition(SelfPiEvent.END_SHARING);
 		}
 	}
 
@@ -1022,9 +1192,6 @@ public class SelfPi implements KeyListener {
 				e.printStackTrace();
 			}				
 
-			// set button state
-			if (useFacebook || useWebShare) setWhiteLedON();
-			
 			SelfPi.redButtonLed.startSoftBlink();
 
 			SelfPi.this.stateMachineTransition(SelfPiEvent.END_PRINTING);
@@ -1040,17 +1207,22 @@ public class SelfPi implements KeyListener {
 			SelfPi.redButtonLed.startBlinking();
 
 			// wait the countdown
-			try { Thread.sleep((countdownLength-1)*1000); } catch (InterruptedException e) {}
+			try { Thread.sleep((countdownLength)*1000); } catch (InterruptedException e) {}
 
 			// take a picture
 			String numberFileName = Integer.toString( (int) (new Date().getTime() /1000) );
 			lastSouvenirPictureFile = new File(souvenirImageFilefolder+numberFileName+".jpg");
-			picam.takeApictureToFile(lastSouvenirPictureFile);
+			
+			try {
+				picam.takeApictureToFile(lastSouvenirPictureFile);
+			} catch (IOException e1) {
+				e1.printStackTrace();
+			}
 
 			try { Thread.sleep(100); } catch (InterruptedException e) {}
 			SelfPi.this.stateMachineTransition(SelfPiEvent.PRINT);
 		}
-	}
+	} 
 
 	private class ButtonLed {
 		private GpioPinPwmOutput ledPin;

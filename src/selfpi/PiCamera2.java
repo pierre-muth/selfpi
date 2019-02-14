@@ -5,6 +5,7 @@ import java.awt.image.WritableRaster;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.imageio.IIOImage;
@@ -13,7 +14,7 @@ import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.stream.FileImageOutputStream;
 
-public class PiCamera implements Runnable {
+public class PiCamera2 implements Runnable {
 	// defaults :
 	public static final float JPEG_QUALITY = 0.97f;	
 	public static int IMG_HEIGHT = 576;	
@@ -35,18 +36,29 @@ public class PiCamera implements Runnable {
 	private AtomicBoolean request_frame = new AtomicBoolean(false);
 	private AtomicBoolean recording_frame = new AtomicBoolean(false);
 	
-	public PiCamera(int width, int height) {
+	private Process raspividyuvProcess;
+	private int raspividyuvPID;
+	
+	public PiCamera2(int width, int height) {
 		IMG_HEIGHT = height;
 		IMG_WIDTH = width;
 		FRAME_LENGTH = (IMG_WIDTH * IMG_HEIGHT) + ((IMG_WIDTH * IMG_HEIGHT)/2);
 		pixBuf = new int[IMG_HEIGHT * IMG_WIDTH ];
 		pixList = new int[IMG_HEIGHT * IMG_WIDTH ];
+//		RASPIVID =   
+//				"raspividyuv"+	
+//				" -w "+IMG_WIDTH+" -h "+IMG_HEIGHT+			//image dimension
+//				" -p 0,0,"+SelfPi.screenHeight+","+SelfPi.screenHeight+  // output location and size
+//				" -ev "+SelfPi.cameraExposure+" -co "+SelfPi.cameraContast+
+//				" -ex sports -fps 90 -t 0 -o -";	//no timeout, monochom effect
+		
 		RASPIVID = 
 				"/opt/vc/bin/raspividyuv"+	
 				" -w "+IMG_WIDTH+" -h "+IMG_HEIGHT+			//image dimension
-				" -p 0,0,"+SelfPi.screenHeight+","+SelfPi.screenHeight+  // output location and size
+				" -p 0,0,"+768+","+768+  // output location and size
 				" -ev "+SelfPi.cameraExposure+" -co "+SelfPi.cameraContast+
-				" -ex night -fps 0 -t 0 -cfx 128:128 -o -";	//no timeout, monochom effect
+				" -md 6 -drc low -ex sports -fps 90 -t 0 -o -";	//no timeout, monochom effect
+		
 	}
 	
 	@Override
@@ -54,45 +66,48 @@ public class PiCamera implements Runnable {
 
 		try {
 			// launch video process
-			Process p = Runtime.getRuntime().exec(RASPIVID);
-			BufferedInputStream bis = new BufferedInputStream(p.getInputStream());
+			raspividyuvProcess = Runtime.getRuntime().exec(RASPIVID);
+			BufferedInputStream bis = new BufferedInputStream(raspividyuvProcess.getInputStream());
 
 			System.out.println("starting camera with "+RASPIVID);
+			
+			try {
+				Field field;
+				field = raspividyuvProcess.getClass().getDeclaredField("pid");
+				field.setAccessible(true);
+				raspividyuvPID = (int) field.get( raspividyuvProcess );
+				System.out.println("raspividyuv Process is: "+  raspividyuvPID);
+			} catch (IllegalAccessException | IllegalArgumentException | NoSuchFieldException | SecurityException e) {
+				e.printStackTrace();
+			} 
 
+			int pixCount = 0; 
 			int pixRead = bis.read();
-			int pixCount = 1; // we just read the first pixel yet
+			pixBuf[pixCount] = pixRead;
+			pixCount++;	// we just read the first pixel yet
 
 			while (pixRead != -1 && !exit.get()) {
-				// after skipping chroma data, end of a frame
-				if (pixCount >= FRAME_LENGTH) {
-					pixCount = 0;
-					if (request_frame.get()) { 
-						frame_ready.set(false);
-						recording_frame.set(true);
-					}
-				}
+
 				// read a pixel
 				pixRead = bis.read();
-				// first pixels are only luminance pixel info
-				if (pixCount < (IMG_WIDTH * IMG_HEIGHT)) {
-					if (recording_frame.get()) 
-						pixBuf[pixCount] = pixRead;
-				}
+				pixBuf[pixCount] = pixRead;
+				
 				// inc pixel counter
 				pixCount++;
-				// a luminance frame has arrived
+				
+				// a frame has arrived
 				if (pixCount == (IMG_WIDTH * IMG_HEIGHT)) {
-					if (recording_frame.get()) {
+					pixCount = 0;
+					if (request_frame.get()){
 						pixList = pixBuf.clone();
 						request_frame.set(false);
-						recording_frame.set(false);
 						frame_ready.set(true);
 					}
 				}
 			}
 
 			System.out.println("end camera");
-			p.destroy();
+			raspividyuvProcess.destroy();
 			bis.close();
 			System.exit(0);
 
@@ -117,6 +132,13 @@ public class PiCamera implements Runnable {
 		
 		// ask for recording a frame and wait
 		request_frame.set(true);
+		
+		try {
+			Runtime.getRuntime().exec("kill -SIGUSR2 "+raspividyuvPID);
+		} catch (IOException e1) {
+			e1.printStackTrace();
+		}
+		
 		while (!frame_ready.get()) {
 			try { Thread.sleep(20); } catch (InterruptedException e) {}
 			System.out.print(".");
@@ -137,6 +159,14 @@ public class PiCamera implements Runnable {
 		} 
 		
 		frame_ready.set(false);
+	}
+	
+	public void timeScanSwitch() {
+		try {
+			Runtime.getRuntime().exec("kill -SIGUSR1 "+raspividyuvPID);
+		} catch (IOException e1) {
+			e1.printStackTrace();
+		}
 	}
 	
 	public void close() {

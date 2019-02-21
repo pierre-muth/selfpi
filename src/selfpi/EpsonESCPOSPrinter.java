@@ -6,6 +6,7 @@ import java.awt.image.DataBufferByte;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.imageio.ImageIO;
 import javax.usb.UsbClaimException;
@@ -27,6 +28,8 @@ import javax.usb.UsbPipe;
 public class EpsonESCPOSPrinter {
 
 	private static final String testString = "test usb4java\n";
+	private static final int LOCK_WAIT_TIME_OUT = 30000; // timeout of the waiting loop to unlock in ms;
+	
 	// The vendor ID 
 	private static final short VENDOR_ID = 0x04b8;	//1208 in decimal
 	// The product ID 
@@ -101,7 +104,8 @@ public class EpsonESCPOSPrinter {
 	private UsbDevice device;
 	private UsbEndpoint usbEndpoint;
 	private UsbInterface usbInterface;
-	private Thread usbPrinting;
+	
+	private static AtomicBoolean locked = new AtomicBoolean(false);
 	
 	public EpsonESCPOSPrinter(short product_id) throws SecurityException, UsbException {
 		EpsonESCPOSPrinter.product_id = product_id;
@@ -164,6 +168,26 @@ public class EpsonESCPOSPrinter {
 		
 		
 	}
+	
+	public void lock(){
+		locked.set(true);
+	}
+	public void unlock(){
+		locked.set(false);
+	}
+	public boolean isLocked(){
+		return locked.get();
+	}
+	
+	public boolean waitUnlocked(){
+		int loops = 0;
+		
+		while(locked.get() && loops < LOCK_WAIT_TIME_OUT){
+			try { Thread.sleep(100); } catch (InterruptedException e) {};
+			loops+=100;
+		}
+		return loops < LOCK_WAIT_TIME_OUT;
+	}
 
 	public void close() {
 		if (usbInterface == null) return;
@@ -183,11 +207,6 @@ public class EpsonESCPOSPrinter {
 				0x05, (0x00FF & SelfPi.printDensity), ((0xFF00 & SelfPi.printDensity) >>> 8),
 				0x06, (0x00FF & SelfPi.printerSpeed), 0x00
 				};		
-		
-		if (usbPrinting != null && usbPrinting.isAlive()) {
-			System.out.println("Still sending to printer");
-			return;
-		}
 		
 		UsbPipe pipe = usbEndpoint.getUsbPipe();
 		try {
@@ -234,10 +253,6 @@ public class EpsonESCPOSPrinter {
 	}
 	
 	public void printHeader(){
-		if (usbPrinting != null && usbPrinting.isAlive()) {
-			System.out.println("Still sending to printer");
-			return;
-		}
 		
 		UsbPipe pipe = usbEndpoint.getUsbPipe();
 		try {
@@ -262,10 +277,6 @@ public class EpsonESCPOSPrinter {
 			System.out.println("DEBUG: Printer: cut" );
 			return;
 		}
-		if (usbPrinting != null && usbPrinting.isAlive()) {
-			System.out.println("Still sending to printer");
-			return;
-		}
 		
 		UsbPipe pipe = usbEndpoint.getUsbPipe();
 		try {
@@ -286,6 +297,10 @@ public class EpsonESCPOSPrinter {
 	}
 	
 	public void print(String text){
+		if (SelfPi.DEBUG) {
+			System.out.println("DEBUG: Printer text: "+text);
+			return;
+		}
 		UsbPipe pipe = usbEndpoint.getUsbPipe();
 		try {
 			pipe.open();
@@ -482,7 +497,7 @@ public class EpsonESCPOSPrinter {
 		}
 		return b;
 	}
-
+	
 //	private class PrintWithUsb implements Runnable {
 //		private MonochromImage monoimg;
 //		private TicketMode mode;

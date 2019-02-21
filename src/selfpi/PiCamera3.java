@@ -1,5 +1,7 @@
 package selfpi;
 
+import java.awt.geom.AffineTransform;
+import java.awt.image.AffineTransformOp;
 import java.awt.image.BufferedImage;
 import java.awt.image.WritableRaster;
 import java.io.BufferedInputStream;
@@ -25,15 +27,10 @@ public class PiCamera3 implements Runnable {
 	public static int IMG_HEIGHT = 576;	
 	public static int IMG_RATIO = 1;
 	public static int IMG_WIDTH = (int) (IMG_HEIGHT * IMG_RATIO);	
-	public static String RASPIVID = 
-			"/opt/vc/bin/raspividyuv"+	
-			" -w "+IMG_WIDTH+" -h "+IMG_HEIGHT+		//image dimension
-			" -p 0,0,1024,1024"+					//preview position
-			" -ex night -fps 0 -ev +0.1 -co 50 -t 0 -cfx 128:128 -o -";		//no timeout, monochom effect
+	public static String RASPIVID;		//no timeout, monochom effect
 
 
 	private int[] pixBuf = new int[IMG_HEIGHT * IMG_WIDTH ];
-	private int[] pixList = new int[IMG_HEIGHT * IMG_WIDTH ];
 	
 	private ArrayList<int[]> animatedFrames = new ArrayList<>();
 	
@@ -47,21 +44,13 @@ public class PiCamera3 implements Runnable {
 		IMG_HEIGHT = height;
 		IMG_WIDTH = width;
 		pixBuf = new int[IMG_HEIGHT * IMG_WIDTH ];
-		pixList = new int[IMG_HEIGHT * IMG_WIDTH ];
-//		RASPIVID =   
-//				"raspividyuv"+	
-//				" -w "+IMG_WIDTH+" -h "+IMG_HEIGHT+			//image dimension
-//				" -p 0,0,"+SelfPi.screenHeight+","+SelfPi.screenHeight+  // output location and size
-//				" -ev "+SelfPi.cameraExposure+" -co "+SelfPi.cameraContast+
-//				" -ex sports -fps 90 -t 0 -o -";	//no timeout, monochom effect
-		
 		RASPIVID = 
 //				"/opt/vc/bin/raspitimescan"+
 				"./raspitimescan"+	
 				" -w "+IMG_WIDTH+" -h "+IMG_HEIGHT+			//image dimension
-				" -p 0,0,"+768+","+768+  // output location and size
-				" -ev "+SelfPi.cameraExposure+" -co "+SelfPi.cameraContast+
-				" -hf -md 6 -drc low -ex sports -fps 90 -t 0 -o -";	//no timeout, monochom effect
+				" -p 0,0,"+1024+","+1024+  // output location and size
+				" -ev "+SelfPi.cameraExposure+" -co "+SelfPi.cameraContast+" "+SelfPi.cameraCommands+
+				" -n -hf -md 6 -ex sports -fps 90 -t 0 -o -"; 	//no timeout, monochom effect
 		
 	}
 	
@@ -86,6 +75,7 @@ public class PiCamera3 implements Runnable {
 			} 
 
 			int pixCount = 0; 
+			int pixIndex = 0;
 			int pixRead = bis.read();
 			pixBuf[pixCount] = pixRead;
 			pixCount++;	// we just read the first pixel yet
@@ -94,7 +84,9 @@ public class PiCamera3 implements Runnable {
 
 				// read a pixel
 				pixRead = bis.read();
-				pixBuf[pixCount] = pixRead;
+				// reverse the lines as image is mirrored
+				pixIndex = (IMG_WIDTH - (pixCount%IMG_WIDTH)) + (IMG_WIDTH * (int)(pixCount/IMG_WIDTH)) -1;
+				pixBuf[pixIndex] = pixRead;
 				
 				// inc pixel counter
 				pixCount++;
@@ -122,8 +114,8 @@ public class PiCamera3 implements Runnable {
 	
 	public void takeApictureToFile(File jpgFile) throws FileNotFoundException, IOException {
 		animatedFrames.clear();
-		BufferedImage bufImage = new BufferedImage(IMG_WIDTH, IMG_HEIGHT, BufferedImage.TYPE_BYTE_GRAY);
-		WritableRaster wr = bufImage.getData().createCompatibleWritableRaster();
+		BufferedImage bufImage;
+		WritableRaster wr;
 		ImageWriteParam imageWriteParam;
 		IIOImage outputImage;
 		ImageWriter imageWriter = ImageIO.getImageWritersByFormatName("jpg").next();

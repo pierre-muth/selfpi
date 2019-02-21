@@ -4,6 +4,7 @@ import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.GridLayout;
@@ -30,35 +31,35 @@ public class Gui extends JPanel {
 	private static final String CARD_COUNT = "count";
 	private static final String CARD_SHARE = "share";
 	private static final String CARD_IMPORT = "import";
-	private static final String CARD_FACEBOOK_UP = "face_up";
-	private static final String CARD_TWEETING = "tweeting";
-	private static final String CARD_REPRINTING = "reprint";
 	
-	private static final String SCREEN_SHARE = "share_screen.png";
+	private static final String CARD_ENABLE = "enable";
+	private static final String CARD_ONGOING = "ongoing";
+	private static final String CARD_DISABLE = "disable";
+	
 	private static final String SCREEN_IDLE = "idle_screen.png";
 	
-	private static final String SCREEN_REPRINTING = "reprinting_screen.png";
-	private static final String SCREEN_FACEBOOK_UP = "facebook_upload_screen.png";
-	private static final String SCREEN_TWEETING = "tweeting_screen.png";
-		
+	private static final String TILE_FACEBOOK_ENABLE = "tile_facebook_enable.png";
+	private static final String TILE_FACEBOOK_ONGOING = "tile_facebook_ongoing.png";
+	private static final String TILE_FACEBOOK_DISABLE = "tile_facebook_disable.png";
+	private static final String TILE_TWITTER_ENABLE = "tile_twitter_enable.png";
+	private static final String TILE_TWITTER_ONGOING = "tile_twitter_ongoing.png";
+	private static final String TILE_TWITTER_DISABLE = "tile_twitter_disable.png";
+	private static final String TILE_REPRINT_ENABLE = "tile_reprint_enable.png";
+	private static final String TILE_REPRINT_ONGOING = "tile_reprint_ongoing.png";
+	private static final String TILE_REPRINT_DISABLE = "tile_reprint_disable.png";
+	
 	private Thread countDownThread;
 	private Thread shareProgressThread;
 	
-	private boolean verticalOrientation = false;
-
 	private NumberFormat formatter = new DecimalFormat("#0.0");     
 	
-	public Gui(boolean verticalOrientation) {
-		this.verticalOrientation = verticalOrientation;
+	public static enum SHARE_STATE {ENABLE, ONGOING, DISABLE};
+	
+	public Gui() {
 		setLayout(new BorderLayout());
 		setBackground(Color.white);
-		if (verticalOrientation) {
-			add(getDummyPanel(), BorderLayout.CENTER);
-			add(getMainPanel(), BorderLayout.SOUTH);
-		} else {
-			add(getDummyPanel(), BorderLayout.WEST);
-			add(getMainPanel(), BorderLayout.CENTER);
-		}
+		add(getDummyPanel(), BorderLayout.CENTER);
+		add(getMainPanel(), BorderLayout.SOUTH);
 	}
 
 	public void launchCountDown() {
@@ -76,6 +77,17 @@ public class Gui extends JPanel {
 		shareProgressThread.setPriority(Thread.MAX_PRIORITY);
 		shareProgressThread.start();
 	}
+	
+	public void resetShareProgressBar(){
+		new Thread(new Runnable() {
+			
+			@Override
+			public void run() {
+				try { Thread.sleep(1000); } catch (InterruptedException e) {}
+				getShareProgressBar().setValue(1000);
+			}
+		}).start();
+	}
 
 	public void setMode(final SelfpiState state) {
 		System.out.println("GUI Mode: "+state);
@@ -85,34 +97,79 @@ public class Gui extends JPanel {
 				if (state == SelfpiState.HISTORIC_SOUVENIR ||
 						state == SelfpiState.HISTORIC_PLAYERS ||
 						state == SelfpiState.HISTORIC_DSLR){
-					getCardLayout().show(Gui.this.getMainPanel(), CARD_HIST);
+					getMainCardLayout().show(Gui.this.getMainPanel(), CARD_HIST);
 				}
 				if (state == SelfpiState.IDLE_SOUVENIR) {
-					getCardLayout().show(Gui.this.getMainPanel(), CARD_IDLE);
+					getMainCardLayout().show(Gui.this.getMainPanel(), CARD_IDLE);
+					resetShareProgressBar();
 				}
 				if (state == SelfpiState.TAKING_PICT) {
-					getCardLayout().show(Gui.this.getMainPanel(), CARD_COUNT);
+					getMainCardLayout().show(Gui.this.getMainPanel(), CARD_COUNT);
 					launchCountDown();
 				}
 				if (state == SelfpiState.WAIT_FOR_SHARE) {
-					getShareProgressBar().setValue(100);
-					getCardLayout().show(Gui.this.getMainPanel(), CARD_SHARE);
+					getMainCardLayout().show(Gui.this.getMainPanel(), CARD_SHARE);
 					launchShareProgress();
 				}
 				if (state == SelfpiState.IMPORT_DSLR) {
-					getCardLayout().show(Gui.this.getMainPanel(), CARD_IMPORT);
-				}
-				if (state == SelfpiState.RE_PRINTING) {
-					getCardLayout().show(Gui.this.getMainPanel(), CARD_REPRINTING);
-				}
-				if (state == SelfpiState.FACEBOOK_UPLOAD) {
-					getCardLayout().show(Gui.this.getMainPanel(), CARD_FACEBOOK_UP);
-				}
-				if (state == SelfpiState.TWEETING) {
-					getCardLayout().show(Gui.this.getMainPanel(), CARD_TWEETING);
+					getMainCardLayout().show(Gui.this.getMainPanel(), CARD_IMPORT);
 				}
 			}
 		});
+	}
+	
+	public void setFacebookShareStatus(SHARE_STATE state) {
+		switch (state) {
+		case ENABLE:
+			getFacebookCardLayout().show(getShareFacebookPanel(), CARD_ENABLE);
+			break;
+		case ONGOING:
+			getFacebookCardLayout().show(getShareFacebookPanel(), CARD_ONGOING);
+			break;
+		case DISABLE:
+			getFacebookCardLayout().show(getShareFacebookPanel(), CARD_DISABLE);
+			break;
+
+		default:
+			getFacebookCardLayout().show(getShareFacebookPanel(), CARD_DISABLE);
+			break;
+		}
+	}
+	
+	public void setTwitterShareStatus(SHARE_STATE state) {
+		switch (state) {
+		case ENABLE:
+			getTwitterCardLayout().show(getShareTwitterPanel(), CARD_ENABLE);
+			break;
+		case ONGOING:
+			getTwitterCardLayout().show(getShareTwitterPanel(), CARD_ONGOING);
+			break;
+		case DISABLE:
+			getTwitterCardLayout().show(getShareTwitterPanel(), CARD_DISABLE);
+			break;
+
+		default:
+			getTwitterCardLayout().show(getShareTwitterPanel(), CARD_DISABLE);
+			break;
+		}
+	}
+
+	public void setReprintShareStatus(SHARE_STATE state) {
+		switch (state) {
+		case ENABLE:
+			getReprintCardLayout().show(getShareReprintPanel(), CARD_ENABLE);
+			break;
+		case ONGOING:
+			getReprintCardLayout().show(getShareReprintPanel(), CARD_ONGOING);
+			break;
+		case DISABLE:
+			getReprintCardLayout().show(getShareReprintPanel(), CARD_DISABLE);
+			break;
+
+		default:
+			getReprintCardLayout().show(getShareReprintPanel(), CARD_DISABLE);
+			break;
+		}
 	}
 
 	public void displayHistoricImages(final File[] listOfFiles) throws InvocationTargetException, InterruptedException{
@@ -174,12 +231,12 @@ public class Gui extends JPanel {
 		
 	}
 
-	private CardLayout cardLayout;
-	private CardLayout getCardLayout() {
-		if (cardLayout == null) {
-			cardLayout = new CardLayout();
+	private CardLayout mainCardLayout;
+	private CardLayout getMainCardLayout() {
+		if (mainCardLayout == null) {
+			mainCardLayout = new CardLayout();
 		}
-		return cardLayout;
+		return mainCardLayout;
 	}
 
 	private JPanel dummyPanel;
@@ -194,16 +251,13 @@ public class Gui extends JPanel {
 	private JPanel mainPanel;
 	private JPanel getMainPanel() {
 		if (mainPanel == null) {
-			mainPanel = new JPanel(getCardLayout());
+			mainPanel = new JPanel(getMainCardLayout());
 			mainPanel.setPreferredSize(new Dimension(1024, 256));
 			mainPanel.add(getIdleLabel(), CARD_IDLE);
 			mainPanel.add(getHistoryPanel(), CARD_HIST);
 			mainPanel.add(getSharePanel(), CARD_SHARE);
 			mainPanel.add(getCountLabel(), CARD_COUNT);
 			mainPanel.add(getImportTextPane(), CARD_IMPORT);
-			mainPanel.add(getReprintScreenLabel(), CARD_REPRINTING);
-			mainPanel.add(getFacebookUpScreenLabel(), CARD_FACEBOOK_UP);
-			mainPanel.add(getTweetingScreenLabel(), CARD_TWEETING);
 		}
 		return mainPanel;
 	}
@@ -226,8 +280,7 @@ public class Gui extends JPanel {
 		if(countLabel == null) {
 			countLabel = new JLabel(formatter.format(SelfPi.countdownLength));
 			countLabel.setHorizontalTextPosition(SwingConstants.CENTER);
-			if (verticalOrientation) countLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 300));
-			else countLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 200));
+			countLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 300));
 			countLabel.setHorizontalAlignment(JLabel.CENTER);
 		}
 		return countLabel;
@@ -237,14 +290,169 @@ public class Gui extends JPanel {
 	private JPanel getSharePanel() {
 		if(sharePanel == null) {
 			sharePanel = new JPanel(new BorderLayout());
-			sharePanel.add(getShareScreenLabel(), BorderLayout.CENTER);
-			if (verticalOrientation) {
-				sharePanel.add(getShareProgressBar(), BorderLayout.WEST);
-			} else {
-				sharePanel.add(getShareProgressBar(), BorderLayout.SOUTH);
-			}
+			sharePanel.add(getShareScreenOptionsPanel(), BorderLayout.CENTER);
+			sharePanel.add(getShareProgressBar(), BorderLayout.NORTH);
+			sharePanel.setPreferredSize(new Dimension(1024, 256));
 		}
 		return sharePanel;
+	}
+	
+	private CardLayout facebookCardLayout;
+	private CardLayout getFacebookCardLayout() {
+		if (facebookCardLayout == null) {
+			facebookCardLayout = new CardLayout();
+		}
+		return facebookCardLayout;
+	}
+	
+	private JPanel shareFacebookPanel;
+	private JPanel getShareFacebookPanel() {
+		if (shareFacebookPanel == null) {
+			shareFacebookPanel = new JPanel(getFacebookCardLayout());
+			shareFacebookPanel.add(getFacebookEnableLabel(), CARD_ENABLE);
+			shareFacebookPanel.add(getFacebookOngoingLabel(), CARD_ONGOING);
+			shareFacebookPanel.add(getFacebookDisableLabel(), CARD_DISABLE);
+		}
+		return shareFacebookPanel;
+	}
+	
+	private JLabel facebookEnableLabel;
+	private JLabel getFacebookEnableLabel() {
+		if (facebookEnableLabel == null) {
+			facebookEnableLabel = new JLabel();
+			facebookEnableLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+TILE_FACEBOOK_ENABLE));
+			facebookEnableLabel.setPreferredSize(new Dimension(330, 200));
+		}
+		return facebookEnableLabel;
+	}
+	
+	private JLabel facebookOngoingLabel;
+	private JLabel getFacebookOngoingLabel() {
+		if (facebookOngoingLabel == null) {
+			facebookOngoingLabel = new JLabel();
+			facebookOngoingLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+TILE_FACEBOOK_ONGOING));
+			facebookOngoingLabel.setPreferredSize(new Dimension(330, 200));
+		}
+		return facebookOngoingLabel;
+	}
+	
+	private JLabel facebookDisableLabel;
+	private JLabel getFacebookDisableLabel() {
+		if (facebookDisableLabel == null) {
+			facebookDisableLabel = new JLabel();
+			facebookDisableLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+TILE_FACEBOOK_DISABLE));
+			facebookDisableLabel.setPreferredSize(new Dimension(330, 200));
+		}
+		return facebookDisableLabel;
+	}
+	
+	private CardLayout reprintCardLayout;
+	private CardLayout getReprintCardLayout() {
+		if (reprintCardLayout == null) {
+			reprintCardLayout = new CardLayout();
+		}
+		return reprintCardLayout;
+	}
+	
+	private JPanel shareReprintPanel;
+	private JPanel getShareReprintPanel() {
+		if (shareReprintPanel == null) {
+			shareReprintPanel = new JPanel(getReprintCardLayout());
+			shareReprintPanel.add(getReprintEnableLabel(), CARD_ENABLE);
+			shareReprintPanel.add(getReprintOngoingLabel(), CARD_ONGOING);
+			shareReprintPanel.add(getReprintDisableLabel(), CARD_DISABLE);
+		}
+		return shareReprintPanel;
+	}
+	
+	private JLabel reprintEnableLabel;
+	private JLabel getReprintEnableLabel() {
+		if (reprintEnableLabel == null) {
+			reprintEnableLabel = new JLabel();
+			reprintEnableLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+TILE_REPRINT_ENABLE));
+			reprintEnableLabel.setPreferredSize(new Dimension(364, 200));
+		}
+		return reprintEnableLabel;
+	}
+	
+	private JLabel reprintOngoingLabel;
+	private JLabel getReprintOngoingLabel() {
+		if (reprintOngoingLabel == null) {
+			reprintOngoingLabel = new JLabel();
+			reprintOngoingLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+TILE_REPRINT_ONGOING));
+			reprintOngoingLabel.setPreferredSize(new Dimension(364, 200));
+		}
+		return reprintOngoingLabel;
+	}
+	
+	private JLabel reprintDisableLabel;
+	private JLabel getReprintDisableLabel() {
+		if (reprintDisableLabel == null) {
+			reprintDisableLabel = new JLabel("reprint disable");
+			reprintDisableLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+TILE_REPRINT_DISABLE));
+			reprintDisableLabel.setPreferredSize(new Dimension(364, 200));
+		}
+		return reprintDisableLabel;
+	}
+	
+	private CardLayout twitterCardLayout;
+	private CardLayout getTwitterCardLayout() {
+		if (twitterCardLayout == null) {
+			twitterCardLayout = new CardLayout();
+		}
+		return twitterCardLayout;
+	}
+	
+	private JPanel shareTwitterPanel;
+	private JPanel getShareTwitterPanel() {
+		if (shareTwitterPanel == null) {
+			shareTwitterPanel = new JPanel(getTwitterCardLayout());
+			shareTwitterPanel.add(getTwitterEnableLabel(), CARD_ENABLE);
+			shareTwitterPanel.add(getTwitterOngoingLabel(), CARD_ONGOING);
+			shareTwitterPanel.add(getTwitterDisableLabel(), CARD_DISABLE);
+		}
+		return shareTwitterPanel;
+	}
+	
+	private JLabel twitterEnableLabel;
+	private JLabel getTwitterEnableLabel() {
+		if (twitterEnableLabel == null) {
+			twitterEnableLabel = new JLabel();
+			twitterEnableLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+TILE_TWITTER_ENABLE));
+			twitterEnableLabel.setPreferredSize(new Dimension(330, 200));
+		}
+		return twitterEnableLabel;
+	}
+	
+	private JLabel twitterOngoingLabel;
+	private JLabel getTwitterOngoingLabel() {
+		if (twitterOngoingLabel == null) {
+			twitterOngoingLabel = new JLabel();
+			twitterOngoingLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+TILE_TWITTER_ONGOING));
+			twitterOngoingLabel.setPreferredSize(new Dimension(330, 200));
+		}
+		return twitterOngoingLabel;
+	}
+	
+	private JLabel twitterDisableLabel;
+	private JLabel getTwitterDisableLabel() {
+		if (twitterDisableLabel == null) {
+			twitterDisableLabel = new JLabel();
+			twitterDisableLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+TILE_TWITTER_DISABLE));
+			twitterDisableLabel.setPreferredSize(new Dimension(330, 200));
+		}
+		return twitterDisableLabel;
+	}
+	
+	private JPanel shareScreenOptionsPanel;
+	private JPanel getShareScreenOptionsPanel(){
+		if (shareScreenOptionsPanel == null){
+			shareScreenOptionsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+			shareScreenOptionsPanel.add(getShareFacebookPanel());
+			shareScreenOptionsPanel.add(getShareReprintPanel());
+			shareScreenOptionsPanel.add(getShareTwitterPanel());
+		}
+		return shareScreenOptionsPanel;
 	}
 	
 	private JEditorPane importTextPane;
@@ -261,57 +469,16 @@ public class Gui extends JPanel {
 	private JProgressBar shareProgressBar;
 	private JProgressBar getShareProgressBar() {
 		if (shareProgressBar == null) {
-			shareProgressBar = new JProgressBar(0, 100);
-			if (verticalOrientation) {
-				shareProgressBar.setOrientation(SwingConstants.VERTICAL);
-				shareProgressBar.setPreferredSize(new Dimension(80, 256));
-			} else {
-				shareProgressBar.setOrientation(SwingConstants.HORIZONTAL);
-				shareProgressBar.setPreferredSize(new Dimension(256, 80));
-			}
+			shareProgressBar = new JProgressBar(0, 1000);
+			shareProgressBar.setOrientation(SwingConstants.HORIZONTAL);
+			shareProgressBar.setPreferredSize(new Dimension(1024, 56));
 			shareProgressBar.setBackground(Color.white);
 			shareProgressBar.setForeground(Color.black);
+			shareProgressBar.setValue(1000);
 		}
 		return shareProgressBar;
 	}
 	
-	private JLabel shareScreenLabel;
-	private JLabel getShareScreenLabel() {
-		if (shareScreenLabel == null) {
-			shareScreenLabel = new JLabel();
-			shareScreenLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+SCREEN_SHARE));
-		}
-		return shareScreenLabel;
-	}
-	
-	private JLabel reprintScreenLabel;
-	private JLabel getReprintScreenLabel() {
-		if (reprintScreenLabel == null) {
-			reprintScreenLabel = new JLabel();
-			reprintScreenLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+SCREEN_REPRINTING));
-		}
-		return reprintScreenLabel;
-	}
-	
-	private JLabel facebookUpScreenLabel;
-	private JLabel getFacebookUpScreenLabel() {
-		if (facebookUpScreenLabel == null) {
-			facebookUpScreenLabel = new JLabel();
-			facebookUpScreenLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+SCREEN_FACEBOOK_UP));
-		}
-		return facebookUpScreenLabel;
-	}
-	
-	private JLabel tweetingScreenLabel;
-	private JLabel getTweetingScreenLabel() {
-		if (tweetingScreenLabel == null) {
-			tweetingScreenLabel = new JLabel();
-			tweetingScreenLabel.setIcon(new ImageIcon(SelfPi.SETUP_PATH+SCREEN_TWEETING));
-		}
-		return tweetingScreenLabel;
-	}
-	
-
 	private JPanel historyPanel;
 	private JPanel getHistoryPanel() {
 		if (historyPanel == null) {
@@ -326,11 +493,7 @@ public class Gui extends JPanel {
 	private JLabel getHistoryText() {
 		if (historyText == null){
 			historyText = new JLabel();
-			if (verticalOrientation) {
-				historyText.setText("<-: Previous, ->: Next, 1-6 : Print one, p: Print All, esc: Quit");
-			} else {
-				historyText.setText("<html><center> &lt;-: Previous<br>-&gt;: Next<br>p: Print<br>esc: Quit");
-			}
+			historyText.setText("<-: Previous, ->: Next, 1-6 : Print one, p: Print All, esc: Quit");
 			historyText.setFont(new Font(Font.MONOSPACED, Font.BOLD, 20));
 			historyText.setVisible(true);
 		}
@@ -409,7 +572,7 @@ public class Gui extends JPanel {
 		
 		@Override
 		public void run() {
-			for (int counter = 100; counter >= 0; counter -= 1) {
+			for (int counter = getShareProgressBar().getValue(); counter >= 0; counter -= 1) {
 				final int value = counter;
 				
 				SwingUtilities.invokeLater(new Runnable() {
@@ -419,7 +582,7 @@ public class Gui extends JPanel {
 					}
 				});
 				
-				try { Thread.sleep(100); } catch (InterruptedException e) {}
+				try { Thread.sleep(10); } catch (InterruptedException e) {}
 			}
 		}
 	}

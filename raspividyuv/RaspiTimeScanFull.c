@@ -883,7 +883,7 @@ static MMAL_STATUS_T create_render_component(RASPIVIDYUV_STATE *state)
 	param.dest_rect.x = 0;
 	param.dest_rect.y = 0;
 	param.dest_rect.width = state->preview_parameters.previewWindow.width;
-	param.dest_rect.height = state->preview_parameters.previewWindow.height;
+	param.dest_rect.height = state->preview_parameters.previewWindow.width;
 
 	mmal_port_parameter_set(input, &param.hdr);
 
@@ -1076,8 +1076,8 @@ static MMAL_STATUS_T create_camera_component(RASPIVIDYUV_STATE *state)
    // Ensure there are enough buffers to avoid dropping frames
 //   if (video_port->buffer_num < state->common_settings.height)
 //      video_port->buffer_num = state->common_settings.height;
-   if (video_port->buffer_num < VIDEO_OUTPUT_BUFFERS_NUM)
-         video_port->buffer_num = VIDEO_OUTPUT_BUFFERS_NUM;
+   if (video_port->buffer_num < format->es->video.height)
+         video_port->buffer_num = format->es->video.height;
 
 
    status = mmal_port_parameter_set_boolean(video_port, MMAL_PARAMETER_ZERO_COPY, MMAL_TRUE);
@@ -1366,9 +1366,11 @@ int main(int argc, const char **argv)
          uint8_t  *dataRender;
          unsigned int cameraFrameNumber;
          unsigned int renderFrameNumber = 0;
-         int imageByteSize = videoWidth*videoHeight;
+         int imageYByteSize = videoWidth*videoHeight;
+         int imageYUVByteSize;
+
          int timeIdx = 0;
-         int i=0;
+         int i=0, j=0;
          int startTime = (int)(vcos_getmicrosecs()/1000);
          int elapsedTime = 0;
          int keepRunning = 1;
@@ -1392,7 +1394,7 @@ int main(int argc, const char **argv)
         		 for( i=0; i<render_headers_num; i+=2) {
         			 renderbuffer = renderbufferarray[(renderFrameNumber+i)%render_headers_num];
         			 mmal_buffer_header_mem_lock(renderbuffer);
-        			 bytes_written = fwrite(renderbuffer->data, 1, imageByteSize, stdout);
+        			 bytes_written = fwrite(renderbuffer->data, 1, imageYByteSize, stdout);
         			 mmal_buffer_header_mem_unlock(renderbuffer);
         		 }
 
@@ -1424,15 +1426,17 @@ int main(int argc, const char **argv)
 
         		 if (state.timeScanRendering){
         			 // copy the camera buffer to the render buffer according to the wanted frame-delay
-        			 for (i = 0; i < imageByteSize; i++){
-        				 timeIdx = (cameraFrameNumber - gradientdata[i] - 1) % camera_headers_num;
+        			 for (i = 0; i < videoHeight; i++){
+        				 timeIdx = (cameraFrameNumber - i - 1) % camera_headers_num;
         				 camerabuffer = camerabufferarray[timeIdx];
         				 dataPayload = (uint8_t *)camerabuffer->priv->payload;
-        				 dataRender[i] = dataPayload[i];
+        				 for (j = 0; j < videoWidth; j++){
+        					 dataRender[j+(i*videoWidth)] = dataPayload[j+(i*videoWidth)];
+        				 }
         			 }
         		 } else {
         			 // copy the  last camera buffer to the render buffer
-        			 for (i = 0; i < imageByteSize; i++){
+        			 for (i = 0; i < imageYByteSize; i++){
         				 timeIdx = (cameraFrameNumber - 1) % camera_headers_num;
         				 camerabuffer = camerabufferarray[timeIdx];
         				 dataPayload = (uint8_t *)camerabuffer->priv->payload;

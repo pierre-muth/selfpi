@@ -109,9 +109,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /// Video render needs at least 2 buffers.
 //  here it is the resolution of pixel depth of the time map
-#define VIDEO_OUTPUT_BUFFERS_NUM 256+10
+#define VIDEO_OUTPUT_BUFFERS_NUM 266
+#define VIDEO_OUTPUT_AVERAGE 256
 #define STILL_OUTPUT_BUFFERS_NUM 3
-#define RENDER_OUTPUT_BUFFERS_NUM 64
+#define RENDER_OUTPUT_BUFFERS_NUM 4
 
 /// Interval at which we check for an failure abort during capture
 const int ABORT_INTERVAL = 100; // ms
@@ -206,6 +207,8 @@ static int cmdline_commands_size = sizeof(cmdline_commands) / sizeof(cmdline_com
 // signal globals
 static int signal_USR1 = 0;
 static int signal_USR2 = 0;
+
+static uint32_t *imageSum;
 
 
 /**
@@ -401,6 +404,31 @@ static void camera_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buff
 	PORT_USERDATA *pData = (PORT_USERDATA *)port->userdata;
 	RASPIVIDYUV_STATE *pstate = pData->pstate;
 	MMAL_BUFFER_HEADER_T *new_buffer;
+	int i;
+	int timeIdx = 0;
+	uint32_t headers_num = pstate->camera_pool->headers_num;
+	MMAL_BUFFER_HEADER_T **camerabufferarray;
+	MMAL_BUFFER_HEADER_T *camerabuffer;
+	uint8_t  *dataPayload;
+
+	if (pstate->scannedframe >= VIDEO_OUTPUT_AVERAGE ){
+		camerabufferarray = pData->pstate->camera_pool->header;
+
+		timeIdx = (pstate->scannedframe - VIDEO_OUTPUT_AVERAGE) % headers_num;
+		camerabuffer = camerabufferarray[timeIdx];
+		dataPayload = (uint8_t *)camerabuffer->priv->payload;
+
+		// substract oldest value to the sum
+		for (i=0; i<buffer->alloc_size; i++){
+			imageSum[i] = imageSum[i] - dataPayload[i];
+		}
+
+	}
+
+	// add newest value to the sum
+	for (i=0; i<buffer->alloc_size; i++){
+		imageSum[i] = imageSum[i] + buffer->data[i];
+	}
 
 	// release buffer back to the pool
 	mmal_buffer_header_release(buffer);
@@ -423,44 +451,6 @@ static void camera_buffer_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buff
 	}
 }
 
-
-/** Callback from the control port.
- * Component is sending us an event. */
-static void decoder_control_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer)
-{
-	vcos_log_info( "decoder_control_callback, buffer->cmd: %u", buffer->cmd);
-	if (buffer->cmd == MMAL_EVENT_ERROR) vcos_log_info("decoder error");
-	if (buffer->cmd == MMAL_EVENT_EOS) vcos_log_info("decoder MMAL_EVENT_EOS");
-
-
-	/* Done with the event, recycle it */
-	mmal_buffer_header_release(buffer);
-}
-
-/** Callback from the input port.
- * Buffer has been consumed and is available to be used again. */
-static void decoder_input_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer)
-{
-	vcos_log_info( "decoder_input_callback");
-	/* The decoder is done with the data, just recycle the buffer header into its pool */
-	mmal_buffer_header_release(buffer);
-}
-
-/** Callback from the output port.
- * Buffer has been produced by the port and is available for processing. */
-static void decoder_output_callback(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer)
-{
-	vcos_log_info( "decoder_output_callback: buffer->length  %u", buffer->length);
-	if (buffer->cmd == MMAL_EVENT_ERROR) vcos_log_info("decoder_output_callback error");
-	if (buffer->cmd == MMAL_EVENT_EOS) vcos_log_info("decoder_output_callback MMAL_EVENT_EOS");
-	if (buffer->cmd == MMAL_EVENT_FORMAT_CHANGED) vcos_log_info("decoder_output_callback MMAL_EVENT_FORMAT_CHANGED");
-
-	PORT_USERDATA *pData = (PORT_USERDATA *)port->userdata;
-	RASPIVIDYUV_STATE *pstate = pData->pstate;
-//	pstate->decoder_buffer = buffer;
-
-	mmal_queue_put( pstate->decoder_queue, buffer);
-}
 
 static MMAL_STATUS_T create_encoder_component(RASPIVIDYUV_STATE *state) {
 	MMAL_WRAPPER_T *encoder = 0;
@@ -661,176 +651,6 @@ static void mmal_encode_image(RASPIVIDYUV_STATE *state, MMAL_BUFFER_HEADER_T* in
 	printf("- written %u bytes to %s\n\n", outputWritten, filename);
 }
 
-static MMAL_STATUS_T create_decoder_component(RASPIVIDYUV_STATE *state)
-{
-	vcos_log_info( "create_decoder_component");
-	static FILE *source_file;
-	MMAL_STATUS_T status = MMAL_EINVAL;
-	MMAL_COMPONENT_T *decoder = NULL;
-	MMAL_POOL_T *pool_in = NULL, *pool_out = NULL;
-	MMAL_BOOL_T eos_sent = MMAL_FALSE, eos_received = MMAL_FALSE;
-	MMAL_BUFFER_HEADER_T *buffer;
-
-	source_file = fopen("gradien.png", "rb");
-	vcos_log_info( "create_decoder_component: source_file: %p", source_file);
-
-	status = mmal_component_create(MMAL_COMPONENT_DEFAULT_IMAGE_DECODER, &decoder);
-
-	state->decoder_component = decoder;
-
-	/* Set the zero-copy parameter on the output port */
-	status = mmal_port_parameter_set_boolean(decoder->output[0], MMAL_PARAMETER_ZERO_COPY, MMAL_TRUE);
-
-	/* Set format of video decoder input port */
-	MMAL_ES_FORMAT_T *format_in = decoder->input[0]->format;
-	format_in->type = MMAL_ES_TYPE_VIDEO;
-	format_in->encoding = MMAL_ENCODING_PNG;
-	format_in->es->video.width = 0;
-	format_in->es->video.height = 0;
-	format_in->es->video.frame_rate.num = 0;
-	format_in->es->video.frame_rate.den = 1;
-	format_in->es->video.par.num = 1;
-	format_in->es->video.par.den = 1;
-	status = mmal_port_format_commit(decoder->input[0]);
-
-	MMAL_ES_FORMAT_T *format_out = decoder->output[0]->format;
-	format_out->type = MMAL_ES_TYPE_VIDEO;
-	format_out->encoding = MMAL_ENCODING_I420;
-	format_out->es->video.width = 64;
-	format_out->es->video.height = 64;
-	status = mmal_port_format_commit(decoder->output[0]);
-
-	/* The format of both ports is now set so we can get their buffer requirements and create
-	 * our buffer headers. We use the buffer pool API to create these. */
-	decoder->input[0]->buffer_num = 20;
-	decoder->input[0]->buffer_size = decoder->input[0]->buffer_size_recommended;
-	decoder->output[0]->buffer_num = 10;
-	decoder->output[0]->buffer_size = 50000;
-
-	pool_in = mmal_port_pool_create(decoder->input[0],
-			decoder->input[0]->buffer_num,
-			decoder->input[0]->buffer_size);
-	pool_out = mmal_port_pool_create(decoder->output[0],
-			decoder->output[0]->buffer_num,
-			decoder->output[0]->buffer_size);
-
-	/* Create a queue to store our decoded frame(s). The callback we will get when
-	 * a frame has been decoded will put the frame into this queue. */
-	state->decoder_queue = mmal_queue_create();
-	state->test = 1;
-
-	// Set up our userdata - this is passed though to the callback where we need the information.
-//	state->callback_data.pstate = &state;
-
-	/* Store a reference to our context in each port (will be used during callbacks) */
-	decoder->input[0]->userdata = (struct MMAL_PORT_USERDATA_T *)&state->callback_data;
-	decoder->output[0]->userdata = (struct MMAL_PORT_USERDATA_T *)&state->callback_data;
-	decoder->control->userdata = (struct MMAL_PORT_USERDATA_T *)&state->callback_data;
-
-
-	/* Enable all the input port and the output port.
-	 * The callback specified here is the function which will be called when the buffer header
-	 * we sent to the component has been processed. */
-	status = mmal_port_enable(decoder->control, decoder_control_callback);
-	status = mmal_port_enable(decoder->input[0], decoder_input_callback);
-	status = mmal_port_enable(decoder->output[0], decoder_output_callback);
-
-	/* Component won't start processing data until it is enabled. */
-	status = mmal_component_enable(decoder);
-
-	while ((buffer = mmal_queue_get(pool_out->queue)) != NULL)
-	{
-		status = mmal_port_send_buffer(decoder->output[0], buffer);
-	}
-
-	while (!eos_sent) {
-		buffer = mmal_queue_wait(pool_in->queue);
-
-		buffer->length = fread(buffer->data, 1, buffer->alloc_size - 128, source_file);
-		buffer->offset = 0;
-		if(!buffer->length) eos_sent = MMAL_TRUE;
-		buffer->flags = buffer->length ? 0 : MMAL_BUFFER_HEADER_FLAG_EOS;
-		buffer->pts = buffer->dts = MMAL_TIME_UNKNOWN;
-		status = mmal_port_send_buffer(decoder->input[0], buffer);
-	}
-
-	while (!eos_received) {
-		vcos_sleep(200);
-
-		/* Get our output frames */
-		while ((buffer = mmal_queue_get(state->decoder_queue)) != NULL) {
-//			while (state->decoder_buffer != NULL) {
-//			buffer = state->decoder_buffer;
-			vcos_log_info( "create_decoder_component: mmal_queue_get != null");
-
-
-			eos_received = buffer->flags & MMAL_BUFFER_HEADER_FLAG_EOS;
-
-			if (buffer->cmd) {
-				if (buffer->cmd == MMAL_EVENT_ERROR) {
-					vcos_log_info( "create_decoder_component: buffer->cmd: MMAL_EVENT_ERROR	");
-				}
-
-				if (buffer->cmd == MMAL_EVENT_FORMAT_CHANGED) {
-					vcos_log_info( "create_decoder_component: buffer->cmd: MMAL_EVENT_FORMAT_CHANGED");
-					MMAL_EVENT_FORMAT_CHANGED_T *event = mmal_event_format_changed_get(buffer);
-
-					mmal_buffer_header_release(buffer);
-					mmal_port_disable(decoder->output[0]);
-
-					//Clear out the queue and release the buffers.
-					while(mmal_queue_length(pool_out->queue) < pool_out->headers_num) {
-						buffer = mmal_queue_wait(state->decoder_queue);
-						mmal_buffer_header_release(buffer);
-					}
-
-					//Assume we can't reuse the output buffers, so have to disable, destroy
-					//pool, create new pool, enable port, feed in buffers.
-					mmal_port_pool_destroy(decoder->output[0], pool_out);
-
-					status = mmal_format_full_copy(decoder->output[0]->format, event->format);
-//					decoder->output[0]->format->encoding = MMAL_ENCODING_I420;
-					decoder->output[0]->buffer_num = 2;
-					decoder->output[0]->buffer_size = decoder->output[0]->buffer_size_recommended;
-
-					if (status == MMAL_SUCCESS)
-						status = mmal_port_format_commit(decoder->output[0]);
-
-					mmal_port_enable(decoder->output[0], decoder_output_callback);
-					pool_out = mmal_port_pool_create(decoder->output[0], decoder->output[0]->buffer_num, decoder->output[0]->buffer_size);
-				} else {
-					mmal_buffer_header_release(buffer);
-				}
-
-				continue;
-			} else {
-				// convert rgba to y(uv)
-
-				int k = 0;
-				int i = 0;
-				int imgW = state->common_settings.width;
-				int imgH = state->common_settings.height;
-				for (i=0; i<(imgH*imgW); i++) {
-					buffer->data[k] = buffer->data[i*4];
-					k++;
-				}
-
-				state->decoded_gradient_buffer = buffer;
-//				mmal_buffer_header_release(buffer);
-			}
-
-		}
-		/* Send empty buffers to the output port of the decoder */
-		while ((buffer = mmal_queue_get(pool_out->queue)) != NULL) {
-			status = mmal_port_send_buffer(decoder->output[0], buffer);
-		}
-
-	}
-
-
-	return status;
-}
-
 static MMAL_STATUS_T create_render_component(RASPIVIDYUV_STATE *state)
 {
 	MMAL_COMPONENT_T *render = NULL;
@@ -883,7 +703,7 @@ static MMAL_STATUS_T create_render_component(RASPIVIDYUV_STATE *state)
 	param.dest_rect.x = 0;
 	param.dest_rect.y = 0;
 	param.dest_rect.width = state->preview_parameters.previewWindow.width;
-	param.dest_rect.height = state->preview_parameters.previewWindow.height;
+	param.dest_rect.height = state->preview_parameters.previewWindow.width;
 
 	mmal_port_parameter_set(input, &param.hdr);
 
@@ -907,6 +727,7 @@ static MMAL_STATUS_T create_camera_component(RASPIVIDYUV_STATE *state)
    MMAL_PORT_T *preview_port = NULL, *video_port = NULL, *still_port = NULL;
    MMAL_STATUS_T status;
    MMAL_POOL_T *pool;
+   MMAL_POOL_T *scanPool;
 
    /* Create the component */
    status = mmal_component_create(MMAL_COMPONENT_DEFAULT_CAMERA, &camera);
@@ -1264,11 +1085,6 @@ int main(int argc, const char **argv)
       destroy_camera_component(&state);
       exit_code = EX_SOFTWARE;
    }
-   else if ((status = create_decoder_component(&state)) != MMAL_SUCCESS)
-   {
-	   vcos_log_error("%s: Failed to create decoder component", __func__);
-	   exit_code = EX_SOFTWARE;
-   }
    else if ((status = create_render_component(&state)) != MMAL_SUCCESS)
    {
 	   vcos_log_error("%s: Failed to create render component", __func__);
@@ -1312,6 +1128,10 @@ int main(int argc, const char **argv)
     	  state.callback_data.abort = 0;
 
     	  camera_video_port->userdata = (struct MMAL_PORT_USERDATA_T *)&state.callback_data;
+
+    	  fprintf(stdout, "camera_video_port->buffer_size %i \n", camera_video_port->buffer_size);
+    	  imageSum = malloc( sizeof(uint32_t) * camera_video_port->buffer_size);
+
 
     	  // Enable the camera video port and tell it its callback function
     	  status = mmal_port_enable(camera_video_port, camera_buffer_callback);
@@ -1358,17 +1178,17 @@ int main(int argc, const char **argv)
          uint8_t *gradientdata = gradientbuffer->data;
          uint32_t videoWidth = camera_video_port->format->es->video.width;
          uint32_t videoHeight = camera_video_port->format->es->video.height;
-         uint32_t camera_headers_num = camerapool->headers_num;
-         uint32_t render_headers_num = renderpool->headers_num;
+         uint32_t headers_num = camerapool->headers_num;
          MMAL_BUFFER_HEADER_T *renderbuffer;
          MMAL_BUFFER_HEADER_T *camerabuffer;
          uint8_t  *dataPayload;
          uint8_t  *dataRender;
-         unsigned int cameraFrameNumber;
-         unsigned int renderFrameNumber = 0;
+         uint8_t  average;
+         unsigned int frameNumber;
          int imageByteSize = videoWidth*videoHeight;
          int timeIdx = 0;
          int i=0;
+         int j=0;
          int startTime = (int)(vcos_getmicrosecs()/1000);
          int elapsedTime = 0;
          int keepRunning = 1;
@@ -1379,66 +1199,33 @@ int main(int argc, const char **argv)
 
          while(keepRunning) {
 
-        	 // time scan effect enable/disable on sigusr1
-        	 if (signal_USR1){
-        		 state.timeScanRendering = ! state.timeScanRendering;
-        		 signal_USR1 = 0;
-        	 }
-
-        	 // if we had a signal usr2
+        	 // if we had a signal usr2, send renderbuffer on stdout
         	 if (signal_USR2){
+        		 vcos_sleep(200);
 
-        		 // send renderbuffer on stdout
-        		 for( i=0; i<render_headers_num; i+=2) {
-        			 renderbuffer = renderbufferarray[(renderFrameNumber+i)%render_headers_num];
-        			 mmal_buffer_header_mem_lock(renderbuffer);
-        			 bytes_written = fwrite(renderbuffer->data, 1, imageByteSize, stdout);
-        			 mmal_buffer_header_mem_unlock(renderbuffer);
-        		 }
+        		 renderbuffer = mmal_queue_get(renderpool->queue);
+        		 renderbuffer->length = renderbuffer->alloc_size;
+        		 mmal_buffer_header_mem_lock(renderbuffer);
+        		 bytes_written = fwrite(renderbuffer->data, 1, imageByteSize, stdout);
+        		 mmal_buffer_header_mem_unlock(renderbuffer);
+        		 mmal_buffer_header_release(renderbuffer);
 
-        		 // plays an animation of the last computed frames.
-        		 for( i=render_headers_num-1; i>=0; i--) {
-        			 renderbuffer = renderbufferarray[(renderFrameNumber+i)%render_headers_num];
-        			 renderbuffer->length = renderbuffer->alloc_size;
-        			 mmal_port_send_buffer(state.render_input_port, renderbuffer);
-        			 vcos_sleep(40);
-        		 }
-        		 for( i=0; i<render_headers_num; i++) {
-        			 renderbuffer = renderbufferarray[(renderFrameNumber+i)%render_headers_num];
-        			 renderbuffer->length = renderbuffer->alloc_size;
-        			 mmal_port_send_buffer(state.render_input_port, renderbuffer);
-        			 vcos_sleep(40);
-        		 }
+        		 fflush(stdout);
 
-        		 vcos_sleep(3000);
-
+        		 vcos_sleep(2000);
         		 signal_USR2 = 0;
         	 }
 
         	 // compute the frame to be render
-        	 cameraFrameNumber = state.scannedframe;
-        	 renderbuffer = renderbufferarray[renderFrameNumber%render_headers_num];
+        	 frameNumber = state.scannedframe;
+        	 renderbuffer = mmal_queue_get(renderpool->queue);
 
         	 if (renderbuffer) {
         		 dataRender = renderbuffer->data;
 
-        		 if (state.timeScanRendering){
-        			 // copy the camera buffer to the render buffer according to the wanted frame-delay
-        			 for (i = 0; i < imageByteSize; i++){
-        				 timeIdx = (cameraFrameNumber - gradientdata[i] - 1) % camera_headers_num;
-        				 camerabuffer = camerabufferarray[timeIdx];
-        				 dataPayload = (uint8_t *)camerabuffer->priv->payload;
-        				 dataRender[i] = dataPayload[i];
-        			 }
-        		 } else {
-        			 // copy the  last camera buffer to the render buffer
-        			 for (i = 0; i < imageByteSize; i++){
-        				 timeIdx = (cameraFrameNumber - 1) % camera_headers_num;
-        				 camerabuffer = camerabufferarray[timeIdx];
-        				 dataPayload = (uint8_t *)camerabuffer->priv->payload;
-        				 dataRender[i] = dataPayload[i];
-        				 //        				 dataRender[i] = gradientdata[i];
-        			 }
+        		 for (i = 0; i < renderbuffer->alloc_size; i++){
+        			 average = (imageSum[i] / (VIDEO_OUTPUT_AVERAGE)) & 0xFF;
+        			 dataRender[i] = average;
         		 }
 
         		 // after timeout, send a copy of renderbuffer to the encoder then write the file
@@ -1455,7 +1242,6 @@ int main(int argc, const char **argv)
         		 //send the render buffer to the render port
         		 renderbuffer->length = renderbuffer->alloc_size;
         		 mmal_port_send_buffer(state.render_input_port, renderbuffer);
-        		 renderFrameNumber++;
         	 }
 
         	 // sleep to not saturate the cpu (it changes the output framerate)
@@ -1510,33 +1296,4 @@ int main(int argc, const char **argv)
 
    return exit_code;
 }
-
-//        		 // test with 2 color ordered dithering
-//        		 for (int i = 0; i < videoHeight; i++){
-//        			 for (int j = 0; j < videoWidth; j++){
-//        				 idx = (i*videoWidth)+j;
-//        				 timeIdx = gradientdata[idx];
-//        				 timeIdx = (timeIdx+frameNumber+9) % headers_num;
-//        				 camerabuffer = camerabufferarray[timeIdx];
-//        				 dataPayload = (uint8_t *)camerabuffer->priv->payload;
-//
-//        				 dataRender[idx] = dataPayload[idx]/4 > (pattern[j & 7][i & 7]) ? 255 : 0;
-//
-//        			 }
-//        		 }
-
-//        		 // test averaging
-//        		 for (int i = 0; i < imageByteSize; i++){
-//        			 av = 0;
-//        			 for (int j=0; j<headers_num; j++){
-//        				 timeIdx = ((frameNumber-j)) % headers_num;
-//        				 camerabuffer = camerabufferarray[timeIdx];
-//        				 dataPayload = (uint8_t *)camerabuffer->priv->payload;
-//        				 av += dataPayload[i];
-////        				 av = dataPayload[i] > av ? dataPayload[i] : av;
-//        			 }
-//        			 dataRender[i] = av;
-//        		 }
-
-
 

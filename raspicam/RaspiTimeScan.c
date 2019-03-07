@@ -149,6 +149,7 @@ struct RASPIVIDYUV_STATE_S
    RASPICOMMONSETTINGS_PARAMETERS common_settings;
    int timeout;                        /// Time taken before frame is grabbed and app then shuts down. Units are milliseconds
    int framerate;                      /// Requested frame rate (fps)
+   char *timeFile;
 
    RASPIPREVIEW_PARAMETERS preview_parameters;   /// Preview setup parameters
    RASPICAM_CAMERA_PARAMETERS camera_parameters; /// Camera setup parameters
@@ -192,12 +193,14 @@ enum
 {
    CommandTimeout,
    CommandFramerate,
+   CommandTimeFile
 };
 
 static COMMAND_LIST cmdline_commands[] =
 {
    { CommandTimeout,       "-timeout",    "t",  "Time (in ms) to capture for. If not specified, set to 5s. Zero to disable", 1 },
    { CommandFramerate,     "-framerate",  "fps","Specify the frames per second to record", 1},
+   { CommandTimeFile,      "-timefile",  "tf", "Specify the file for timescan", 1},
 };
 
 static int cmdline_commands_size = sizeof(cmdline_commands) / sizeof(cmdline_commands[0]);
@@ -340,6 +343,23 @@ static int parse_cmdline(int argc, const char **argv, RASPIVIDYUV_STATE *state)
     	  else
     		  valid = 0;
     	  break;
+      }
+      case CommandTimeFile: // file for timescan
+      {
+    	  int len = strlen(argv[i + 1]);
+    	  if (len)
+    	  {
+    		  state->timeFile = malloc(len+10);
+    		  strncpy(state->timeFile, argv[i + 1], len+1);
+
+//    		  fprintf(stdout, "arg: %s , timeFile: %s \n", argv[i + 1], state->timeFile);
+
+    		  i++;
+    	  }
+    	  else
+    		  valid = 0;
+    	  break;
+
       }
 
       default:
@@ -663,7 +683,6 @@ static void mmal_encode_image(RASPIVIDYUV_STATE *state, MMAL_BUFFER_HEADER_T* in
 
 static MMAL_STATUS_T create_decoder_component(RASPIVIDYUV_STATE *state)
 {
-	vcos_log_info( "create_decoder_component");
 	static FILE *source_file;
 	MMAL_STATUS_T status = MMAL_EINVAL;
 	MMAL_COMPONENT_T *decoder = NULL;
@@ -671,8 +690,7 @@ static MMAL_STATUS_T create_decoder_component(RASPIVIDYUV_STATE *state)
 	MMAL_BOOL_T eos_sent = MMAL_FALSE, eos_received = MMAL_FALSE;
 	MMAL_BUFFER_HEADER_T *buffer;
 
-	source_file = fopen("gradien.png", "rb");
-	vcos_log_info( "create_decoder_component: source_file: %p", source_file);
+	source_file = fopen(state->timeFile, "rb");
 
 	status = mmal_component_create(MMAL_COMPONENT_DEFAULT_IMAGE_DECODER, &decoder);
 

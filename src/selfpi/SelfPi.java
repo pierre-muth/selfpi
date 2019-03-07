@@ -120,7 +120,9 @@ public class SelfPi implements KeyListener {
 	private static final String DITHERINGKEY = "DITHERING_METHOD:";
 	private static final String CAMEXPOSUREKEY = "CAMERA_EXPOSURE:";
 	private static final String CAMERACONTRASTKEY = "CAMERA_CONTRAST:";
+	private static final String CAMERAFPSTKEY = "CAMERA_FPS:";
 	private static final String CAMERACOMMANDSKEY = "CAMERA_COMMANDS:";
+	private static final String CAMERASTARTSWITHTIMESCANSKEY = "CAMERA_STARTS_WITH_TIMESCAN:";
 	private static final String NORMALISEHISTOGRAMKEY = "NORMALISE_HISTOGRAM:";
 	private static final String GAMMACORRECTIONKEY = "GAMMA_CORRECTION:";
 	private static final String GPIO_REDBUTTONKEY = "GPIO_REDBUTTON:";
@@ -158,7 +160,9 @@ public class SelfPi implements KeyListener {
 	public static int ditheringMethod = 2;
 	public static String cameraExposure = "+0.1";
 	public static String cameraContast = "50";
+	public static String cameraFPS = "90";
 	public static String cameraCommands = "";
+	public static boolean cameraStartsWithTimeScan = true;
 	public static boolean normalyseHistogram = true;
 	public static double gamma = 1.0; 
 	public static String gpio_red_button = "GPIO 4";
@@ -263,8 +267,16 @@ public class SelfPi implements KeyListener {
 				cameraContast = br.readLine();
 			}
 			line = br.readLine();
+			if (line != null && line.contains(CAMERAFPSTKEY)) {
+				cameraFPS = br.readLine();
+			}
+			line = br.readLine();
 			if (line != null && line.contains(CAMERACOMMANDSKEY)) {
 				cameraCommands = br.readLine();
+			}
+			line = br.readLine();
+			if (line != null && line.contains(CAMERASTARTSWITHTIMESCANSKEY)) {
+				cameraStartsWithTimeScan = br.readLine().contains("true");
 			}
 			line = br.readLine();
 			if (line != null && line.contains(NORMALISEHISTOGRAMKEY)) {
@@ -405,7 +417,7 @@ public class SelfPi implements KeyListener {
 		}
 
 		// Start Pi camera
-		picam = new PiCamera3(printerdots, printerdots);
+		picam = new PiCamera3(printerdots, printerdots, cameraStartsWithTimeScan);
 		new Thread(picam).start();
 
 	}
@@ -634,10 +646,17 @@ public class SelfPi implements KeyListener {
 		if (useFacebook && !(facebookSharingThread != null && facebookSharingThread.isAlive())){
 			setFacebookLedON();
 			gui.setFacebookShareStatus(Gui.SHARE_STATE.ENABLE);
+		} else {
+			setFacebookLedOFF();
+			gui.setFacebookShareStatus(Gui.SHARE_STATE.DISABLE);
 		}
+		
 		if (useTwitter && !(twitterSharingThread != null && twitterSharingThread.isAlive())){
 			setTwitterLedON();
 			gui.setTwitterShareStatus(Gui.SHARE_STATE.ENABLE);
+		} else {
+			setTwitterLedOFF();
+			gui.setTwitterShareStatus(Gui.SHARE_STATE.DISABLE);
 		}
 		
 		gui.setReprintShareStatus(Gui.SHARE_STATE.ENABLE);
@@ -908,6 +927,7 @@ public class SelfPi implements KeyListener {
 				System.out.println("Closing...");
 				printer.close();
 				picam.close();
+//				System.exit(0);
 			}
 		});
 	}
@@ -1011,11 +1031,11 @@ public class SelfPi implements KeyListener {
 					System.out.println("facebookURL: "+facebookURL);
 
 					QrCode qr0 = QrCode.encodeText(facebookURL, QrCode.Ecc.LOW);
-					BufferedImage img = qr0.toImage(1, 6);
+					BufferedImage img = qr0.toImage(6, 1);
 					if (printer.waitUnlocked()) {
 						printer.lock();
 						printer.print(img);
-						printer.print("Find your picture on Facebook: "+facebookURL+" !");
+						printer.print("Find your picture: "+facebookURL+"\n");
 						printer.cut();
 						printer.print(ticketHeader);
 						printer.unlock();
@@ -1060,11 +1080,11 @@ public class SelfPi implements KeyListener {
 					System.out.println("tweetURL: "+tweetURL);
 					
 					QrCode qr0 = QrCode.encodeText(tweetURL, QrCode.Ecc.LOW);
-					BufferedImage img = qr0.toImage(1, 6);
+					BufferedImage img = qr0.toImage(6, 1);
 					if (printer.waitUnlocked()) {
 						printer.lock();
 						printer.print(img);
-						printer.print("Find your animated gif on Twitter: "+tweetURL+" !");
+						printer.print("Find your animated gif: "+tweetURL+" !\n");
 						printer.cut();
 						printer.print(ticketHeader);
 						printer.unlock();

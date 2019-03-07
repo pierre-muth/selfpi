@@ -6,4 +6,4 @@
 @xset s noblank
 @xset s noexpose
 @xset dpms 0 0 0
-@/home/pi/selfpi/setup/selfpi.sh
+@/home/pi/selfpi/setup/scripts/selfpi.sh

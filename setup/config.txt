@@ -13,9 +13,9 @@ false
 FUNNY_QUOTE:
 false
 USE_FACEBOOK:
-true
+false
 USE_TWITTER:
-true
+false
 USE_WEBSHARE:
 false
 PRINTER_PRODUCT_ID:  // TM-T88IV: 514, TM-T20II: 3605
@@ -36,8 +36,12 @@ CAMERA_EXPOSURE:
 +5.0
 CAMERA_CONTRAST:
 10
+CAMERA_FPS:
+90
 CAMERA_COMMANDS:
--drc med
+-drc med -ex sports -md 6
+CAMERA_STARTS_WITH_TIMESCAN:
+false
 NORMALISE_HISTOGRAM:
 false
 GAMMA_CORRECTION:
@@ -55,4 +59,14 @@ GPIO 6
 GPIO_TWITTERLED:
 GPIO 3
 DEBUG:
+false
+
+
+/* setting for fast time-scan :
+
+CAMERA_FPS:
+90
+CAMERA_COMMANDS:
+-drc med -ex sports -md 6
+CAMERA_STARTS_WITH_TIMESCAN:
 true

@@ -1,7 +1,5 @@
 package selfpi;
 
-import java.awt.geom.AffineTransform;
-import java.awt.image.AffineTransformOp;
 import java.awt.image.BufferedImage;
 import java.awt.image.WritableRaster;
 import java.io.BufferedInputStream;
@@ -9,10 +7,12 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -29,87 +29,105 @@ public class PiCamera3 implements Runnable {
 	public static int IMG_WIDTH = (int) (IMG_HEIGHT * IMG_RATIO);	
 	public static String RASPIVID;		//no timeout, monochom effect
 
-
 	private int[] pixBuf = new int[IMG_HEIGHT * IMG_WIDTH ];
 	
 	private ArrayList<int[]> animatedFrames = new ArrayList<>();
 	
 	private AtomicBoolean exit = new AtomicBoolean(false);
 	private AtomicBoolean frames_ready = new AtomicBoolean(false);
+	private AtomicInteger processAttempts = new AtomicInteger(10);
 	
 	private Process raspividyuvProcess;
 	private int raspividyuvPID;
+	private boolean startWithTimeScan = true;
 	
-	public PiCamera3(int width, int height) {
+	public PiCamera3(int width, int height, boolean startWithTimeScan) {
 		IMG_HEIGHT = height;
 		IMG_WIDTH = width;
+		this.startWithTimeScan = startWithTimeScan;
 		pixBuf = new int[IMG_HEIGHT * IMG_WIDTH ];
 		RASPIVID = 
-//				"/opt/vc/bin/raspitimescan"+
-				"./raspitimescan"+	
+				"/home/pi/selfpi/raspicam/raspitimescan"+
+//				"raspitimescan"+	
 				" -w "+IMG_WIDTH+" -h "+IMG_HEIGHT+			//image dimension
 				" -p 0,0,"+1024+","+1024+  // output location and size
-				" -ev "+SelfPi.cameraExposure+" -co "+SelfPi.cameraContast+" "+SelfPi.cameraCommands+
-				" -n -hf -md 6 -ex sports -fps 90 -t 0 -o -"; 	//no timeout, monochom effect
+				" -ev "+SelfPi.cameraExposure+" -co "+SelfPi.cameraContast+" -fps "+SelfPi.cameraFPS+
+				" "+SelfPi.cameraCommands+
+				" -n -vf -t 0 -tf /home/pi/selfpi/raspicam/gradien.png -o -"; 	//no timeout, monochom effect
 		
-	}
+	} 
 	
 	@Override
 	public void run() {
 
-		try {
-			// launch video process
-			raspividyuvProcess = Runtime.getRuntime().exec(RASPIVID);
-			BufferedInputStream bis = new BufferedInputStream(raspividyuvProcess.getInputStream());
+		while ( processAttempts.get()>0 && !exit.get() ) {
 
-			System.out.println("starting camera with "+RASPIVID);
-			
 			try {
-				Field field;
-				field = raspividyuvProcess.getClass().getDeclaredField("pid");
-				field.setAccessible(true);
-				raspividyuvPID = (int) field.get( raspividyuvProcess );
-				System.out.println("raspividyuv Process is: "+  raspividyuvPID);
-			} catch (IllegalAccessException | IllegalArgumentException | NoSuchFieldException | SecurityException e) {
-				e.printStackTrace();
-			} 
+				// launch video process
+				raspividyuvProcess = Runtime.getRuntime().exec(RASPIVID);
+				BufferedInputStream bis = new BufferedInputStream(raspividyuvProcess.getInputStream());
 
-			int pixCount = 0; 
-			int pixIndex = 0;
-			int pixRead = bis.read();
-			pixBuf[pixCount] = pixRead;
-			pixCount++;	// we just read the first pixel yet
+				System.out.println("starting camera with "+RASPIVID);
 
-			while (pixRead != -1 && !exit.get()) {
+				try {
+					Field field;
+					field = raspividyuvProcess.getClass().getDeclaredField("pid");
+					field.setAccessible(true);
+					raspividyuvPID = (int) field.get( raspividyuvProcess );
+					System.out.println("raspividyuv Process is: "+  raspividyuvPID);
+					if (!startWithTimeScan){
+						PiCamera3.this.timeScanSwitch();
+					}
+				} catch (IllegalAccessException | IllegalArgumentException | NoSuchFieldException | SecurityException e) {
+					e.printStackTrace();
+				} 
 
-				// read a pixel
-				pixRead = bis.read();
-				// reverse the lines as image is mirrored
-				pixIndex = (IMG_WIDTH - (pixCount%IMG_WIDTH)) + (IMG_WIDTH * (int)(pixCount/IMG_WIDTH)) -1;
-				pixBuf[pixIndex] = pixRead;
-				
-				// inc pixel counter
-				pixCount++;
-				
-				// a frame has arrived
-				if (pixCount == (IMG_WIDTH * IMG_HEIGHT)) {
-					pixCount = 0;
-					if (animatedFrames.size() < 30){
-						animatedFrames.add(pixBuf.clone());
-					} else {
-						frames_ready.set(true);
+				int pixCount = 0; 
+				int pixIndex = 0;
+				int pixRead = bis.read();
+				pixBuf[pixCount] = pixRead;
+				pixCount++;	// we just read the first pixel yet
+
+				while (pixRead != -1 && !exit.get()) {
+
+					// read a pixel
+					pixRead = bis.read();
+					// reverse the lines as image is mirrored
+					pixIndex = (IMG_WIDTH - (pixCount%IMG_WIDTH)) + (IMG_WIDTH * (int)(pixCount/IMG_WIDTH)) -1;
+					pixBuf[pixIndex] = pixRead;
+
+					// inc pixel counter
+					pixCount++;
+
+					// a frame has arrived
+					if (pixCount == (IMG_WIDTH * IMG_HEIGHT)) {
+						pixCount = 0;
+						if (animatedFrames.size() < 30){
+							animatedFrames.add(pixBuf.clone());
+						} else {
+							frames_ready.set(true);
+						}
 					}
 				}
+
+				processAttempts.decrementAndGet();
+				if (!exit.get()) System.out.println("Camera ended, attempt left :"+ processAttempts.get());
+				raspividyuvProcess.destroy();
+				bis.close();
+				try { Thread.sleep(1000); } catch (InterruptedException e) {}
+
+			} catch (IOException ieo) {
+				ieo.printStackTrace();
 			}
-
-			System.out.println("end camera");
-			raspividyuvProcess.destroy();
-			bis.close();
-			System.exit(0);
-
-		} catch (IOException ieo) {
-			ieo.printStackTrace();
 		}
+		
+	}
+
+	public void close() {
+		System.out.println("Ending camera");
+		exit.set(true);
+		processAttempts.set(0);
+		raspividyuvProcess.destroy();
 	}
 	
 	public void takeApictureToFile(File jpgFile) throws FileNotFoundException, IOException {
@@ -294,8 +312,4 @@ public class PiCamera3 implements Runnable {
 		}
 	}
 	
-	public void close() {
-		exit.set(true);
-	}
-
 }

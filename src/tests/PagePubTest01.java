@@ -18,8 +18,8 @@ import com.restfb.types.User;
 public class PagePubTest01 {
 	
 	
-	private final String pageAccessToken = "EAAZAL2tdwy5cBAJMKu8Y4hZCklAzsdqClEUApb3Imm7h706iox0kku2jCVb4f4wKUOM1toJZCKbNaPjKDKmh3ZC3JmXjywcVZCwivIZCmfhpZCEtzUZA6GoeGk2R9nnCd8VKsAwxbLBiLhrF3ehYEbfDOVxcSSZAmCrXjt2XOgxgZCSAZDZD";
-    private final String pageID = "1771561039781373";
+	private final String pageAccessToken = "***";
+    private final String pageID = "***";
     private FacebookClient fbClient;
     private User myuser = null;    //Store references to your user and page
     private Page mypage = null;    //for later use. In this answer's context, these

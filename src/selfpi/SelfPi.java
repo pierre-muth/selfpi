@@ -718,8 +718,9 @@ public class SelfPi implements KeyListener {
 			printer.lock();
 			printer.print(lastSouvenirPictureFile);
 			printer.cut();
-			printer.print(ticketHeader);
 			printer.unlock();
+		} else {
+			System.out.println("Printer busy / locked");
 		}
 		SelfPi.redButtonLed.startSoftBlink();
 		gui.setReprintShareStatus(Gui.SHARE_STATE.DISABLE); 
@@ -1039,6 +1040,8 @@ public class SelfPi implements KeyListener {
 						printer.cut();
 						printer.print(ticketHeader);
 						printer.unlock();
+					} else {
+						System.out.println("Printer busy / locked");
 					}
 					
 				} catch (IOException e) {
@@ -1088,6 +1091,8 @@ public class SelfPi implements KeyListener {
 						printer.cut();
 						printer.print(ticketHeader);
 						printer.unlock();
+					} else {
+						System.out.println("Printer busy / locked");
 					}
 					
 				} catch (IOException e) {
@@ -1203,51 +1208,78 @@ public class SelfPi implements KeyListener {
 
 		@Override
 		public void run() {
+			File fileToPrint = lastSouvenirPictureFile;	//default
+			File footToPrint = ticketSouvenirFoot; // default
+			boolean randomTicket = souvenirTicketCounter%frequencyRandomTicketSouvenir == 0;
 
-			if (printer.waitUnlocked()) {
-				printer.lock();
+			// if it's a special ticket and according to all the options 
+			if (randomTicket){
 
-				if (souvenirTicketCounter%frequencyRandomTicketSouvenir == 0){
-
-					if (SelfPi.useRandomSouvenirImages && SelfPi.useRandomFunnyImages && SelfPi.useRandomDSLRImages){
-						if ( (souvenirTicketCounter/frequencyRandomTicketSouvenir) %3 == 0 ) {
-							printer.print(chooseRandomSouvenirImage());
-						} else if ((souvenirTicketCounter/frequencyRandomTicketSouvenir) %3 == 1 ) {
-							printer.print(chooseFunnyImage());
-						} else if ((souvenirTicketCounter/frequencyRandomTicketSouvenir) %3 == 2 ) {
-							printer.print(chooserRandomDSLRImage());
-						}
-					} else if ( !SelfPi.useRandomSouvenirImages && SelfPi.useRandomFunnyImages && !SelfPi.useRandomDSLRImages ){
-						printer.print(chooseFunnyImage());
-					} else if ( SelfPi.useRandomSouvenirImages && !SelfPi.useRandomFunnyImages && !SelfPi.useRandomDSLRImages ){
-						printer.print(chooseRandomSouvenirImage());
-					} else if ( !SelfPi.useRandomSouvenirImages && !SelfPi.useRandomFunnyImages && SelfPi.useRandomDSLRImages ){
-						printer.print(chooserRandomDSLRImage());
+				if ( SelfPi.useRandomSouvenirImages && SelfPi.useRandomFunnyImages && SelfPi.useRandomDSLRImages ){
+					if ( (souvenirTicketCounter/frequencyRandomTicketSouvenir) %3 == 0 ) {
+						fileToPrint = chooseRandomSouvenirImage();
+					} else if ((souvenirTicketCounter/frequencyRandomTicketSouvenir) %3 == 1 ) {
+						fileToPrint = chooseFunnyImage();
+					} else if ((souvenirTicketCounter/frequencyRandomTicketSouvenir) %3 == 2 ) {
+						fileToPrint = chooserRandomDSLRImage();
 					}
-
-
-				} else {
-					printer.print(lastSouvenirPictureFile);
+					footToPrint = ticketWinnerFoot;
+				}
+				if ( !SelfPi.useRandomSouvenirImages && SelfPi.useRandomFunnyImages && SelfPi.useRandomDSLRImages ){
+					if ( (souvenirTicketCounter/frequencyRandomTicketSouvenir) %2 == 0 ) {
+						fileToPrint = chooseFunnyImage();
+					} else if ( (souvenirTicketCounter/frequencyRandomTicketSouvenir) %2 == 1 ) {
+						fileToPrint = chooserRandomDSLRImage();
+					}
+					footToPrint = ticketWinnerFoot;
+				}
+				if ( SelfPi.useRandomSouvenirImages && !SelfPi.useRandomFunnyImages && SelfPi.useRandomDSLRImages ){
+					if ( (souvenirTicketCounter/frequencyRandomTicketSouvenir) %2 == 0 ) {
+						fileToPrint = chooseRandomSouvenirImage();
+					} else if ( (souvenirTicketCounter/frequencyRandomTicketSouvenir) %2 == 1 ) {
+						fileToPrint = chooserRandomDSLRImage();
+					}
+					footToPrint = ticketWinnerFoot;
+				}
+				if ( SelfPi.useRandomSouvenirImages && SelfPi.useRandomFunnyImages && !SelfPi.useRandomDSLRImages ){
+					if ( (souvenirTicketCounter/frequencyRandomTicketSouvenir) %2 == 0 ) {
+						fileToPrint = chooseRandomSouvenirImage();
+					} else if ( (souvenirTicketCounter/frequencyRandomTicketSouvenir) %2 == 1 ) {
+						fileToPrint = chooseFunnyImage();
+					}
+					footToPrint = ticketWinnerFoot;
+				}
+				if ( !SelfPi.useRandomSouvenirImages && !SelfPi.useRandomFunnyImages && SelfPi.useRandomDSLRImages ){
+					fileToPrint = chooserRandomDSLRImage();
+					footToPrint = ticketWinnerFoot;
+				}
+				if ( SelfPi.useRandomSouvenirImages && !SelfPi.useRandomFunnyImages && !SelfPi.useRandomDSLRImages ){
+					fileToPrint = chooseRandomSouvenirImage();
+					footToPrint = ticketWinnerFoot;
+				}
+				if ( !SelfPi.useRandomSouvenirImages && SelfPi.useRandomFunnyImages && !SelfPi.useRandomDSLRImages ){
+					fileToPrint = chooseFunnyImage();
+					footToPrint = ticketWinnerFoot;
 				}
 
-				if (printFunnyQuote) {
-					printer.print(getRandomQuote());
-				}
-
-				if (souvenirTicketCounter%frequencyRandomTicketSouvenir == 0){
-					printer.print(ticketWinnerFoot);
-				} else {
-					printer.print(ticketSouvenirFoot);
-				}
-
-				printer.cut();
-				printer.print(ticketHeader);
-				
-				printer.unlock();
 			}
 
-			System.out.println("souvenir ticket count: "+souvenirTicketCounter);
-			// inc print counter
+			// print sequence
+			if (printer.waitUnlocked()) {
+				printer.lock();
+				printer.print(ticketHeader);
+				printer.print(fileToPrint);
+				if (printFunnyQuote) printer.print(getRandomQuote());
+				printer.print(footToPrint);
+				printer.cut();
+				printer.unlock();
+			} else {
+				System.out.println("Printer busy / locked");
+			}
+
+			System.out.println("souvenir ticket number was: "+souvenirTicketCounter);
+			
+			// increment print counter var and file
 			souvenirTicketCounter++;
 			Path file = Paths.get(PICTURE_COUNTER_FILE_PATH);
 			String line = Integer.toString(souvenirTicketCounter);
@@ -1258,6 +1290,7 @@ public class SelfPi implements KeyListener {
 				e.printStackTrace();
 			}				
 
+			// end
 			SelfPi.redButtonLed.startSoftBlink();
 
 			SelfPi.this.stateMachineTransition(SelfPiEvent.END_PRINTING);

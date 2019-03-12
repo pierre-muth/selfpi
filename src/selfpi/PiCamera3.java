@@ -61,6 +61,7 @@ public class PiCamera3 implements Runnable {
 	public void run() {
 
 		while ( processAttempts.get()>0 && !exit.get() ) {
+			try { Thread.sleep(1000); } catch (InterruptedException e) {}
 
 			try {
 				// launch video process
@@ -114,7 +115,6 @@ public class PiCamera3 implements Runnable {
 				if (!exit.get()) System.out.println("Camera ended, attempt left :"+ processAttempts.get());
 				raspividyuvProcess.destroy();
 				bis.close();
-				try { Thread.sleep(1000); } catch (InterruptedException e) {}
 
 			} catch (IOException ieo) {
 				ieo.printStackTrace();
@@ -136,6 +136,7 @@ public class PiCamera3 implements Runnable {
 		WritableRaster wr;
 		ImageWriteParam imageWriteParam;
 		IIOImage outputImage;
+		FileImageOutputStream outputStream;
 		ImageWriter imageWriter = ImageIO.getImageWritersByFormatName("jpg").next();
 		int[] stillFrame;
 		
@@ -164,13 +165,18 @@ public class PiCamera3 implements Runnable {
 		
 		// write jpeg image file
 		try {
+			
 			bufImage = new BufferedImage(IMG_WIDTH, IMG_HEIGHT, BufferedImage.TYPE_BYTE_GRAY);
 			wr = bufImage.getData().createCompatibleWritableRaster();
 			wr.setPixels(0, 0, IMG_WIDTH, IMG_HEIGHT, stillFrame);		
 			bufImage.setData(wr); 
 			outputImage = new IIOImage(bufImage, null, null);
-			imageWriter.setOutput(new FileImageOutputStream( jpgFile ));
+			outputStream = new FileImageOutputStream( jpgFile );
+			imageWriter.setOutput(outputStream);
 			imageWriter.write(null, outputImage, imageWriteParam);
+			imageWriter.dispose();
+			outputStream.close();
+			
 		} catch (IOException e) {
 			e.printStackTrace();
 		} 

@@ -19,6 +19,9 @@
 	<classpathentry kind="lib" path="lib/usb-api-1.0.2.jar"/>
 	<classpathentry kind="lib" path="lib/usb4java-1.2.0.jar"/>
 	<classpathentry kind="lib" path="lib/usb4java-javax-1.2.0.jar"/>
-	<classpathentry kind="lib" path="lib/restfb-1.31.0.jar"/>
+	<classpathentry kind="lib" path="lib/commons-net-3.3.jar"/>
+	<classpathentry kind="lib" path="lib/qrcodegen-1.4.0.jar"/>
+	<classpathentry kind="lib" path="lib/restfb-2.10.0.jar"/>
+	<classpathentry kind="lib" path="lib/twitter4j-core-4.0.7.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

@@ -50,7 +50,7 @@ public class PiCamera3 implements Runnable {
 				"/home/pi/selfpi/raspicam/raspitimescan"+
 //				"raspitimescan"+	
 				" -w "+IMG_WIDTH+" -h "+IMG_HEIGHT+			//image dimension
-				" -p 0,0,"+1024+","+1024+  // output location and size
+				" -p 0,0,"+SelfPi.screenHeight+","+SelfPi.screenHeight+  // output location and size
 				" -ev "+SelfPi.cameraExposure+" -co "+SelfPi.cameraContast+" -fps "+SelfPi.cameraFPS+
 				" "+SelfPi.cameraCommands+
 				" -n -vf -t 0 -tf /home/pi/selfpi/raspicam/gradien.png -o -"; 	//no timeout, monochom effect

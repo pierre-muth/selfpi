@@ -1,4 +1,4 @@
-package selfpi;
+package tests;
 
 import java.awt.image.BufferedImage;
 import java.awt.image.WritableRaster;
@@ -12,6 +12,8 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.stream.FileImageOutputStream;
+
+import selfpi.SelfPi;
 
 public class PiCamera implements Runnable {
 	// defaults :

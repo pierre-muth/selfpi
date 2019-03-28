@@ -65,7 +65,7 @@ public class FacebookEngine {
 		String facebookUrl = "";
 		Path filePath = Paths.get(imageFile.getPath());
 		byte[] data = Files.readAllBytes(filePath);
-		String message = photoMsg +", "+ imageFile.getName();
+		String message = photoMsg +" ";
 		FacebookType publishPhotoResponse = fbClient.publish(
 				albumID+"/photos", 
 				FacebookType.class,

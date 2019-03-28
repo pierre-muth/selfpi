@@ -1035,10 +1035,10 @@ public class SelfPi implements KeyListener {
 					BufferedImage img = qr0.toImage(6, 1);
 					if (printer.waitUnlocked()) {
 						printer.lock();
+						printer.print(ticketHeader);
 						printer.print(img);
 						printer.print("Find your picture: "+facebookURL+"\n");
 						printer.cut();
-						printer.print(ticketHeader);
 						printer.unlock();
 					} else {
 						System.out.println("Printer busy / locked");

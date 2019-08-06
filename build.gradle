@@ -1,0 +1,27 @@
+apply plugin: 'java'
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+dependencies {
+   compile fileTree(dir: 'lib', includes: ['*.jar'])
+}
+
+jar {
+    baseName = 'selfpi'
+    version =  '0.0.1'
+
+	manifest {
+		attributes(
+        'Class-Path': configurations.compile.collect { it.getName() }.join(' '),
+    		'Main-Class': 'tests.Dither'
+    	)
+  	}
+  	from {
+	    configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+	}
+}
+ 
+sourceSets.main.java.srcDirs += 'src'
+sourceSets.main.java.excludes += '**/GuiFX.java'
+sourceSets.main.resources.srcDirs += 'src'
+sourceSets.main.resources.includes = [ "**/*.png" ]

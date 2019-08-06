@@ -15,3 +15,10 @@ run the /jar/selfpi.jar with 'sudo java -jar selfpi.jar'
 
 ![SelfPi in action](https://cdn.hackaday.io/images/7536721492851531543.jpg)
 
+## build .jar
+
+Generate `build/libs/selfpi-0.0.1.jar`:
+
+```
+sh gradlew jar
+```
